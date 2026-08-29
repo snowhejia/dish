@@ -191,6 +191,7 @@ router.get('/restaurants', asyncHandler(async (request, response) => {
       hours: version.hours,
       latitude: version.latitude,
       longitude: version.longitude,
+      imageUrl: version.restaurantImageUrl,
       versions: [],
     };
     item.versions.push(version.id);
@@ -215,6 +216,7 @@ router.get('/restaurants/:id', asyncHandler(async (request, response) => {
       hours: first.hours,
       latitude: first.latitude,
       longitude: first.longitude,
+      imageUrl: first.restaurantImageUrl,
     },
     versions,
   });
@@ -471,6 +473,7 @@ type VersionDto = {
   galleryCount: number;
   imageUrl?: string;
   gallery?: string[];
+  restaurantImageUrl?: string;
   source: 'prototype' | 'real' | 'admin';
 };
 type ReviewDto = {
@@ -484,7 +487,7 @@ type ReviewDto = {
 };
 type RestaurantDto = {
   id: string; name: string; cuisine: string; address?: string; phone?: string | null; hours?: string;
-  latitude?: number | null; longitude?: number | null; versions: string[];
+  latitude?: number | null; longitude?: number | null; imageUrl?: string; versions: string[];
 };
 type CatalogDto = { dishes: DishDto[]; versions: VersionDto[]; reviewsByVersion: Record<string, ReviewDto[]> };
 
@@ -501,7 +504,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       cuisine: string; dish_type: string | null; metres: string | null; distance_label: string | null; price: string | null;
       would_eat_again: number | null; votes: number; tags: string[]; address: string | null;
       phone: string | null; hours: string | null; latitude: number | null; longitude: number | null;
-      gallery_count: number; object_keys: string[]; source: string;
+      restaurant_cover_object_key: string | null; gallery_count: number; object_keys: string[]; source: string;
     }>(
       `SELECT
          COALESCE(v.legacy_key, v.id::text) AS id,
@@ -516,6 +519,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
          COALESCE(s.vote_count, 0) AS votes,
          COALESCE(tag_list.tags, '{}'::text[]) AS tags,
          r.address, r.phone, r.hours_text AS hours, r.latitude, r.longitude,
+         r.cover_object_key AS restaurant_cover_object_key,
          COALESCE(s.gallery_count, 0) AS gallery_count,
          COALESCE(photo_list.object_keys, '{}'::text[]) AS object_keys,
          v.source
@@ -561,6 +565,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
   }));
   const versions = versionResult.rows.map((row): VersionDto => {
     const gallery = row.object_keys.map(publicMediaUrl).filter((url): url is string => Boolean(url));
+    const restaurantImageUrl = publicMediaUrl(row.restaurant_cover_object_key);
     return {
       id: row.id,
       dishId: row.dish_id,
@@ -580,6 +585,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       ...(row.hours ? { hours: row.hours } : {}),
       latitude: row.latitude,
       longitude: row.longitude,
+      ...(restaurantImageUrl ? { restaurantImageUrl } : {}),
       galleryCount: Math.max(row.gallery_count, gallery.length),
       ...(gallery[0] ? { imageUrl: gallery[0], gallery } : {}),
       source: row.source === 'prototype' ? 'prototype' : row.source === 'admin' ? 'admin' : 'real',

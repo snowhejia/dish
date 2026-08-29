@@ -29,6 +29,7 @@ export type DishVersion = {
   galleryCount?: number;
   imageUrl?: string;
   gallery?: string[];
+  restaurantImageUrl?: string;
   restaurantId?: string;
   latitude?: number | null;
   longitude?: number | null;
@@ -107,6 +108,8 @@ export const realVersions: DishVersion[] = realFoodRecords.map((record) => ({
   address: record.address,
   phone: record.phone,
   hours: record.hours,
+  latitude: record.latitude,
+  longitude: record.longitude,
   galleryCount: 1,
   source: 'real',
 }));

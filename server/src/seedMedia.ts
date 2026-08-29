@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { closeDb, ensureSchema, pool, query } from './db';
-import { loadRealFoodRecords, seedDatabase } from './seed';
+import { loadRealFoodRecords, realRestaurantLegacyKey, seedDatabase } from './seed';
 import { imageObjectExists, isStorageConfigured, putImageObject } from './storage';
 
 type RealDataState = {
@@ -11,6 +11,21 @@ type RealDataState = {
   visibleMediaLinks: number;
   legacyTaxonomy: number;
   taxonomyMismatches: number;
+  canonicalNameMismatches: number;
+  missingRestaurantCoordinates: number;
+};
+
+type RestaurantCoverState = {
+  imported: number;
+  seededCovers: number;
+  preservedAdminCovers: number;
+  missingCovers: number;
+};
+
+type RestaurantCoverExpectation = {
+  legacyKey: string;
+  fileName: string;
+  objectKey: string;
 };
 
 export async function uploadBundledSeedMedia(fileNames?: Iterable<string>) {
@@ -26,6 +41,27 @@ export async function uploadBundledSeedMedia(fileNames?: Iterable<string>) {
     await Promise.all(files.slice(index, index + 4).map(async (name) => {
       const filePath = path.join(directory, name);
       if (!existsSync(filePath)) throw new Error(`Bundled seed photo is missing: ${name}`);
+      const extension = path.extname(name).toLowerCase();
+      const mime = extension === '.png' ? 'image/png' : extension === '.webp' ? 'image/webp' : 'image/jpeg';
+      await putImageObject(`${prefix}/${name}`, readFileSync(filePath), mime, name);
+    }));
+  }
+  return { uploaded: files.length, prefix };
+}
+
+export async function uploadBundledRestaurantSeedMedia(fileNames?: Iterable<string>) {
+  if (!isStorageConfigured()) throw new Error('Cloudflare R2 variables must be configured before uploading restaurant seed media');
+  const directory = findRestaurantDirectory();
+  const prefix = normalizePrefix(process.env.SEED_RESTAURANT_MEDIA_OBJECT_PREFIX ?? 'seed/restaurants');
+  const expectedFiles = new Set(restaurantCoverExpectations(loadRealFoodRecords(), prefix).map((cover) => cover.fileName));
+  const files = fileNames ? [...new Set(fileNames)] : [...expectedFiles];
+  const unexpected = files.find((name) => !expectedFiles.has(name));
+  if (unexpected) throw new Error(`Unrecognized restaurant seed photo: ${unexpected}`);
+
+  for (let index = 0; index < files.length; index += 4) {
+    await Promise.all(files.slice(index, index + 4).map(async (name) => {
+      const filePath = path.join(directory, name);
+      if (!existsSync(filePath)) throw new Error(`Bundled restaurant seed photo is missing: ${name}`);
       const extension = path.extname(name).toLowerCase();
       const mime = extension === '.png' ? 'image/png' : extension === '.webp' ? 'image/webp' : 'image/jpeg';
       await putImageObject(`${prefix}/${name}`, readFileSync(filePath), mime, name);
@@ -56,18 +92,25 @@ export async function repairBundledRealData() {
 async function repairBundledRealDataWithLock() {
   const records = loadRealFoodRecords();
   const prefix = normalizePrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
+  const restaurantCovers = await repairBundledRestaurantCovers(records);
   const before = await realDataState(records, prefix);
 
   if (before.imported === 0) {
-    return { status: 'skipped_no_imported_versions', expected: records.length, ...before };
+    return { status: 'skipped_no_imported_versions', expected: records.length, restaurantCovers, ...before };
   }
   if (before.imported !== records.length) {
-    return { status: 'skipped_incomplete_import', expected: records.length, ...before };
+    return { status: 'skipped_incomplete_import', expected: records.length, restaurantCovers, ...before };
   }
   const metadata = before.legacyTaxonomy > 0
+    || before.taxonomyMismatches > 0
+    || before.canonicalNameMismatches > 0
+    || before.missingRestaurantCoordinates > 0
     ? await seedDatabase({ includeMedia: false, includeUsers: false })
     : undefined;
   const current = metadata ? await realDataState(records, prefix) : before;
+  if (current.missingRestaurantCoordinates > 0) {
+    throw new Error(`Real data repair left ${current.missingRestaurantCoordinates} imported restaurants without coordinates`);
+  }
   const storageConfigured = isStorageConfigured();
   const missingObjects = storageConfigured
     ? await findMissingObjects(records, prefix)
@@ -83,6 +126,7 @@ async function repairBundledRealDataWithLock() {
       before,
       current,
       metadata,
+      restaurantCovers,
       storageVerified: true,
       missingObjects: [],
     };
@@ -97,6 +141,7 @@ async function repairBundledRealDataWithLock() {
       before,
       current,
       metadata,
+      restaurantCovers,
       storageVerified: false,
     };
   }
@@ -124,34 +169,194 @@ async function repairBundledRealDataWithLock() {
     upload,
     database,
     metadata,
+    restaurantCovers,
     storageVerified: true,
     missingObjects,
   };
+}
+
+async function repairBundledRestaurantCovers(
+  records: ReturnType<typeof loadRealFoodRecords>,
+) {
+  const prefix = normalizePrefix(process.env.SEED_RESTAURANT_MEDIA_OBJECT_PREFIX ?? 'seed/restaurants');
+  const expected = restaurantCoverExpectations(records, prefix);
+  const before = await restaurantCoverState(expected);
+
+  if (before.imported === 0) {
+    return {
+      status: 'skipped_no_imported_restaurants',
+      expected: expected.length,
+      before,
+      storageVerified: false,
+    };
+  }
+  if (before.imported !== expected.length) {
+    return {
+      status: 'skipped_incomplete_restaurant_import',
+      expected: expected.length,
+      before,
+      storageVerified: false,
+    };
+  }
+  if (!isStorageConfigured()) {
+    return {
+      status: before.missingCovers === 0 ? 'complete_storage_unverified' : 'skipped_storage_not_configured',
+      expected: expected.length,
+      before,
+      storageVerified: false,
+    };
+  }
+
+  const missingObjects = await findMissingRestaurantObjects(expected);
+  const upload = missingObjects.length > 0
+    ? await uploadBundledRestaurantSeedMedia(missingObjects)
+    : undefined;
+  const database = before.missingCovers > 0
+    ? await linkMissingRestaurantCovers(expected)
+    : undefined;
+  const after = await restaurantCoverState(expected);
+  if (after.imported !== expected.length || after.missingCovers !== 0) {
+    throw new Error(`Restaurant cover repair linked ${after.seededCovers + after.preservedAdminCovers} of ${expected.length} expected restaurants`);
+  }
+  const stillMissingObjects = await findMissingRestaurantObjects(expected);
+  if (stillMissingObjects.length > 0) {
+    throw new Error(`Restaurant cover repair left ${stillMissingObjects.length} of ${expected.length} photos missing from storage`);
+  }
+
+  const changed = missingObjects.length > 0 || (database?.linked ?? 0) > 0;
+  return {
+    status: changed ? 'repaired' : 'already_complete',
+    expected: expected.length,
+    before,
+    after,
+    upload,
+    database,
+    storageVerified: true,
+    missingObjects,
+  };
+}
+
+async function restaurantCoverState(
+  expected: RestaurantCoverExpectation[],
+): Promise<RestaurantCoverState> {
+  const result = await query<{
+    imported: string;
+    seeded_covers: string;
+    preserved_admin_covers: string;
+    missing_covers: string;
+  }>(
+    `
+      WITH expected(legacy_key, object_key) AS (
+        SELECT * FROM unnest($1::text[], $2::text[])
+      )
+      SELECT
+        count(restaurant.id)::text AS imported,
+        count(*) FILTER (WHERE restaurant.cover_object_key = expected.object_key)::text AS seeded_covers,
+        count(*) FILTER (
+          WHERE restaurant.cover_object_key IS NOT NULL
+            AND restaurant.cover_object_key <> expected.object_key
+        )::text AS preserved_admin_covers,
+        count(*) FILTER (WHERE restaurant.cover_object_key IS NULL)::text AS missing_covers
+      FROM expected
+      LEFT JOIN restaurants restaurant
+        ON restaurant.legacy_key = expected.legacy_key
+       AND restaurant.source = 'real_import'
+    `,
+    [expected.map((cover) => cover.legacyKey), expected.map((cover) => cover.objectKey)],
+  );
+  return {
+    imported: Number.parseInt(result.rows[0]?.imported ?? '0', 10),
+    seededCovers: Number.parseInt(result.rows[0]?.seeded_covers ?? '0', 10),
+    preservedAdminCovers: Number.parseInt(result.rows[0]?.preserved_admin_covers ?? '0', 10),
+    missingCovers: Number.parseInt(result.rows[0]?.missing_covers ?? '0', 10),
+  };
+}
+
+async function linkMissingRestaurantCovers(expected: RestaurantCoverExpectation[]) {
+  const result = await query(
+    `
+      WITH expected(legacy_key, object_key) AS (
+        SELECT * FROM unnest($1::text[], $2::text[])
+      )
+      UPDATE restaurants restaurant
+      SET cover_object_key = expected.object_key
+      FROM expected
+      WHERE restaurant.legacy_key = expected.legacy_key
+        AND restaurant.source = 'real_import'
+        AND restaurant.cover_object_key IS NULL
+    `,
+    [expected.map((cover) => cover.legacyKey), expected.map((cover) => cover.objectKey)],
+  );
+  return { linked: result.rowCount ?? 0 };
+}
+
+function restaurantCoverExpectations(
+  records: ReturnType<typeof loadRealFoodRecords>,
+  prefix: string,
+): RestaurantCoverExpectation[] {
+  const filesByRestaurant = new Map<string, string>();
+  records.forEach((record) => {
+    const current = filesByRestaurant.get(record.restaurant);
+    if (current && current !== record.restaurantImageFile) {
+      throw new Error(`Restaurant ${record.restaurant} has conflicting cover photos: ${current} and ${record.restaurantImageFile}`);
+    }
+    filesByRestaurant.set(record.restaurant, record.restaurantImageFile);
+  });
+  return [...filesByRestaurant].map(([name, fileName]) => ({
+    legacyKey: realRestaurantLegacyKey(name),
+    fileName,
+    objectKey: `${prefix}/${fileName}`,
+  }));
+}
+
+async function findMissingRestaurantObjects(
+  expected: RestaurantCoverExpectation[],
+): Promise<string[]> {
+  const missing: string[] = [];
+  for (let index = 0; index < expected.length; index += 4) {
+    const batch = expected.slice(index, index + 4);
+    const existence = await Promise.all(batch.map((cover) => imageObjectExists(cover.objectKey)));
+    existence.forEach((exists, offset) => {
+      if (!exists) missing.push(batch[offset]!.fileName);
+    });
+  }
+  return missing;
 }
 
 async function realDataState(
   records: ReturnType<typeof loadRealFoodRecords>,
   prefix: string,
 ): Promise<RealDataState> {
-  const dishMetadata = new Map<string, { cuisine: string; dishType: string; category: string }>();
+  const dishMetadata = new Map<string, {
+    canonicalName: string;
+    cuisine: string;
+    dishType: string;
+    category: string;
+  }>();
   records.forEach((record) => dishMetadata.set(record.canonicalDishId, {
+    canonicalName: record.canonicalDishName,
     cuisine: record.cuisine,
     dishType: record.dishType,
     category: record.category,
   }));
   const dishes = [...dishMetadata.entries()];
+  const restaurantKeys = [...new Set(records.map((record) => realRestaurantLegacyKey(record.restaurant)))];
   const result = await query<{
     imported: string;
     exact_media_links: string;
     visible_media_links: string;
     legacy_taxonomy: string;
     taxonomy_mismatches: string;
+    canonical_name_mismatches: string;
+    missing_restaurant_coordinates: string;
   }>(
     `
       WITH expected_versions(version_key, media_key, object_key) AS (
         SELECT * FROM unnest($1::text[], $2::text[], $3::text[])
-      ), expected_dishes(dish_key, cuisine, dish_type, legacy_category) AS (
-        SELECT * FROM unnest($4::text[], $5::text[], $6::text[], $7::text[])
+      ), expected_dishes(dish_key, canonical_name, cuisine, dish_type, legacy_category) AS (
+        SELECT * FROM unnest($4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+      ), expected_restaurants(restaurant_key) AS (
+        SELECT * FROM unnest($9::text[])
       )
       SELECT
         (SELECT count(*) FROM expected_versions expected
@@ -176,17 +381,28 @@ async function realDataState(
             AND dish.dish_type = expected.legacy_category)::text AS legacy_taxonomy,
         (SELECT count(*) FROM expected_dishes expected
           JOIN dishes dish ON dish.legacy_key = expected.dish_key
-          WHERE dish.cuisine IS DISTINCT FROM expected.cuisine
-             OR dish.dish_type IS DISTINCT FROM expected.dish_type)::text AS taxonomy_mismatches
+          WHERE dish.source = 'real_import'
+            AND (dish.cuisine IS DISTINCT FROM expected.cuisine
+              OR dish.dish_type IS DISTINCT FROM expected.dish_type))::text AS taxonomy_mismatches,
+        (SELECT count(*) FROM expected_dishes expected
+          JOIN dishes dish ON dish.legacy_key = expected.dish_key
+          WHERE dish.source = 'real_import'
+            AND dish.canonical_name IS DISTINCT FROM expected.canonical_name)::text AS canonical_name_mismatches,
+        (SELECT count(*) FROM expected_restaurants expected
+          JOIN restaurants restaurant ON restaurant.legacy_key = expected.restaurant_key
+          WHERE restaurant.source = 'real_import'
+            AND (restaurant.latitude IS NULL OR restaurant.longitude IS NULL))::text AS missing_restaurant_coordinates
     `,
     [
       records.map((record) => `${record.id}-v1`),
       records.map((record) => `real-media:${record.id}`),
       records.map((record) => `${prefix}/${record.imageFile}`),
       dishes.map(([dishKey]) => dishKey),
+      dishes.map(([, metadata]) => metadata.canonicalName),
       dishes.map(([, metadata]) => metadata.cuisine),
       dishes.map(([, metadata]) => metadata.dishType),
       dishes.map(([, metadata]) => metadata.category),
+      restaurantKeys,
     ],
   );
   return {
@@ -195,6 +411,8 @@ async function realDataState(
     visibleMediaLinks: Number.parseInt(result.rows[0]?.visible_media_links ?? '0', 10),
     legacyTaxonomy: Number.parseInt(result.rows[0]?.legacy_taxonomy ?? '0', 10),
     taxonomyMismatches: Number.parseInt(result.rows[0]?.taxonomy_mismatches ?? '0', 10),
+    canonicalNameMismatches: Number.parseInt(result.rows[0]?.canonical_name_mismatches ?? '0', 10),
+    missingRestaurantCoordinates: Number.parseInt(result.rows[0]?.missing_restaurant_coordinates ?? '0', 10),
   };
 }
 
@@ -228,6 +446,18 @@ function findFoodDirectory() {
   ];
   const match = candidates.find((candidate) => existsSync(candidate));
   if (!match) throw new Error(`Could not locate bundled food photos. Checked: ${candidates.join(', ')}`);
+  return match;
+}
+
+function findRestaurantDirectory() {
+  const candidates = [
+    path.resolve(process.cwd(), 'assets/images/restaurants/real'),
+    path.resolve(process.cwd(), '../assets/images/restaurants/real'),
+    path.resolve(__dirname, '../../assets/images/restaurants/real'),
+    path.resolve(__dirname, '../../../assets/images/restaurants/real'),
+  ];
+  const match = candidates.find((candidate) => existsSync(candidate));
+  if (!match) throw new Error(`Could not locate bundled restaurant photos. Checked: ${candidates.join(', ')}`);
   return match;
 }
 

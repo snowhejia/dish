@@ -1,6 +1,7 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const fallbackFoodImage: ImageSourcePropType = require('../../assets/images/splash-icon.png');
+export const fallbackRestaurantImage: ImageSourcePropType = require('../../assets/images/app-icon-dish.png');
 
 export const foodImages: Record<string, ImageSourcePropType> = {
   'real-single-single-burger-v1': require('../../assets/images/food/real/625c569d050562de2b55efe28f493d41.jpg'),

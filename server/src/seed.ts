@@ -20,8 +20,11 @@ const realFoodRecordSchema = z.object({
   cuisine: z.string().min(1),
   dishType: z.string().min(1),
   imageFile: z.string().min(1),
+  restaurantImageFile: z.string().min(1),
   address: z.string().min(1),
   restaurant: z.string().min(1),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
   recommendation: z.string(),
   phone: z.string().nullable(),
   hours: z.string(),
@@ -180,6 +183,10 @@ async function seedDish(client: PoolClient, record: RealFoodRecord): Promise<str
       VALUES ($1, $2, $3, $4, $5, 'published', 'real_import', now())
       ON CONFLICT (legacy_key) DO UPDATE SET
         legacy_key = EXCLUDED.legacy_key,
+        canonical_name = CASE
+          WHEN dishes.source = 'real_import' THEN EXCLUDED.canonical_name
+          ELSE dishes.canonical_name
+        END,
         cuisine = CASE
           WHEN dishes.source = 'real_import'
             AND dishes.cuisine = $6
@@ -231,24 +238,43 @@ async function seedRestaurant(client: PoolClient, record: RealFoodRecord): Promi
     `
       INSERT INTO restaurants (
         legacy_key, slug, name, address, suburb, state, country_code,
-        phone, timezone, hours_text, status, source, published_at
+        phone, latitude, longitude, timezone, hours_text, status, source, published_at
       )
-      VALUES ($1, $2, $3, $4, $5, 'NSW', 'AU', $6, 'Australia/Sydney', $7,
+      VALUES ($1, $2, $3, $4, $5, 'NSW', 'AU', $6, $7, $8, 'Australia/Sydney', $9,
         'published', 'real_import', now())
-      ON CONFLICT (legacy_key) DO UPDATE SET legacy_key = EXCLUDED.legacy_key
+      ON CONFLICT (legacy_key) DO UPDATE SET
+        legacy_key = EXCLUDED.legacy_key,
+        latitude = CASE
+          WHEN restaurants.source = 'real_import'
+            AND (restaurants.latitude IS NULL OR restaurants.longitude IS NULL)
+          THEN EXCLUDED.latitude
+          ELSE restaurants.latitude
+        END,
+        longitude = CASE
+          WHEN restaurants.source = 'real_import'
+            AND (restaurants.latitude IS NULL OR restaurants.longitude IS NULL)
+          THEN EXCLUDED.longitude
+          ELSE restaurants.longitude
+        END
       RETURNING id
     `,
     [
-      `real-restaurant:${slug}`,
+      realRestaurantLegacyKey(record.restaurant),
       slug,
       record.restaurant,
       record.address,
       record.area,
       record.phone,
+      record.latitude,
+      record.longitude,
       record.hours,
     ],
   );
   return requiredRowId(result.rows[0], 'restaurant', record.restaurant);
+}
+
+export function realRestaurantLegacyKey(name: string): string {
+  return `real-restaurant:${slugify(name)}`;
 }
 
 async function seedVersion(

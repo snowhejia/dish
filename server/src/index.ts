@@ -20,7 +20,7 @@ import { createApiRouter } from './api';
 import { closeDb, ensureSchema, query } from './db';
 import { seedDatabase } from './seed';
 import { repairBundledRealData, uploadBundledSeedMedia } from './seedMedia';
-import { uploadImage } from './storage';
+import { deleteImage, uploadImage } from './storage';
 
 export function createApp() {
   const app = express();
@@ -69,6 +69,7 @@ export function createApp() {
       sessionCookieName: SESSION_COOKIE_NAME,
     },
     upload: uploadImage,
+    deleteUpload: deleteImage,
   }));
 
   app.get('/', (_request, response) => response.redirect(302, '/admin'));
@@ -94,7 +95,6 @@ async function start() {
     const summary = await seedDatabase({ includeMedia: process.env.SEED_UPLOAD_MEDIA === 'true' });
     console.log('[seed] ready', summary);
   }
-  console.log('[real-data-repair] ready', await repairBundledRealData());
   await bootstrapAdmin();
 
   const port = positiveInteger(process.env.PORT, 3000);
@@ -102,6 +102,12 @@ async function start() {
   const server = app.listen(port, '0.0.0.0', () => {
     console.log(`[server] Dish API and admin listening on port ${port}`);
   });
+
+  // Catalog/media repair is idempotent but may touch R2. Do not let a
+  // temporary storage outage prevent the API and admin console from starting.
+  void repairBundledRealData()
+    .then((result) => console.log('[real-data-repair] ready', result))
+    .catch((error) => console.error('[real-data-repair] failed; server remains available', error));
 
   const shutdown = (signal: string) => {
     console.log(`[server] ${signal}; closing`);

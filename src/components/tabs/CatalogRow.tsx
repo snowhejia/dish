@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useEffect, useState } from 'react';
 import type { ImageSourcePropType } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -7,19 +8,34 @@ import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 export function CatalogRow({
   image,
+  fallbackImage,
   title,
   subtitle,
   onPress,
 }: {
   image: ImageSourcePropType;
+  fallbackImage?: ImageSourcePropType;
   title: string;
   subtitle: string;
   onPress: () => void;
 }) {
+  const [resolvedImage, setResolvedImage] = useState(image);
+
+  useEffect(() => {
+    setResolvedImage(image);
+  }, [image]);
+
   return (
     <Pressable accessibilityRole="button" onPress={onPress} style={styles.root}>
       <View style={styles.imageFrame}>
-        <Image contentFit="cover" source={image} style={StyleSheet.absoluteFill} />
+        <Image
+          contentFit="cover"
+          onError={() => {
+            if (fallbackImage && resolvedImage !== fallbackImage) setResolvedImage(fallbackImage);
+          }}
+          source={resolvedImage}
+          style={StyleSheet.absoluteFill}
+        />
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={1} style={styles.title}>

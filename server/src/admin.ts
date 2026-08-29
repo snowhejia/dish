@@ -13,7 +13,7 @@ export type AdminQuery = <T extends QueryResultRow = QueryResultRow>(
 
 export type AdminUpload = (
   file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
-  folder: 'versions' | 'reviews' | 'contributions',
+  folder: 'versions' | 'reviews' | 'contributions' | 'restaurants',
 ) => Promise<{ key: string; url: string; mimeType: string; bytes: number }>;
 
 type SessionResult = { id: string; token: string; expiresAt: Date };
@@ -36,6 +36,7 @@ export type AdminDependencies = {
   requireAdmin: RequestHandler;
   auth?: AdminAuth;
   upload?: AdminUpload;
+  deleteUpload?: (key: string) => Promise<void>;
 };
 
 type AdminRequest = Request & {
@@ -618,6 +619,7 @@ function registerRestaurants(router: Router, dependencies: AdminDependencies): v
     website_url: string | null;
     latitude: number | null;
     longitude: number | null;
+    cover_object_key: string | null;
     hours_text: string | null;
     status: string;
     version_count?: number;
@@ -627,7 +629,7 @@ function registerRestaurants(router: Router, dependencies: AdminDependencies): v
   const renderForm = (request: Request, row: FormValues, errors: FormErrors, editing = false, message?: string, messageType: 'success' | 'error' = 'error') => {
     const body = `<section class="panel"><div class="panel-body">
       ${message ? `<div class="alert ${messageType}" role="alert">${escapeHtml(message)}</div>` : ''}
-      <form class="admin-form" method="post" action="${editing ? `/admin/restaurants/${attr(row.id)}` : '/admin/restaurants'}">
+      <form class="admin-form" method="post" enctype="multipart/form-data" action="${editing ? `/admin/restaurants/${attr(row.id)}` : '/admin/restaurants'}">
         <div class="form-grid">
           ${inputField({ name: 'name', label: 'Restaurant name', value: row.name, error: errors.name, required: true })}
           ${selectField({ name: 'status', label: 'Status', value: row.status ?? 'published', options: ['draft', 'published', 'archived'].map((value) => ({ value, label: value })) })}
@@ -640,12 +642,36 @@ function registerRestaurants(router: Router, dependencies: AdminDependencies): v
           ${inputField({ name: 'latitude', label: 'Latitude', type: 'number', step: 'any', value: row.latitude, error: errors.latitude })}
           ${inputField({ name: 'longitude', label: 'Longitude', type: 'number', step: 'any', value: row.longitude, error: errors.longitude })}
           ${textareaField({ name: 'hours_text', label: 'Opening hours', value: row.hours_text, error: errors.hours_text, hint: 'Free text shown in the first version. Structured hours can be added later.' })}
+          ${photoField(mediaUrl(row.cover_object_key))}
         </div>
         <div class="form-actions"><a class="button secondary" href="/admin/restaurants">Cancel</a><button class="button" type="submit">${editing ? 'Save restaurant' : 'Create restaurant'}</button></div>
       </form>
-      ${editing ? `<form method="post" action="/admin/restaurants/${attr(row.id)}/archive"><button class="button danger small" type="submit">Archive restaurant</button></form>` : ''}
+      ${editing ? `<div class="row-actions">${row.cover_object_key ? `<form method="post" action="/admin/restaurants/${attr(row.id)}/photo/delete"><button class="button danger small" type="submit">Remove cover photo</button></form>` : ''}<form method="post" action="/admin/restaurants/${attr(row.id)}/archive"><button class="button danger small" type="submit">Archive restaurant</button></form></div>` : ''}
     </div></section>`;
     return layout({ title: editing ? 'Edit restaurant' : 'New restaurant', active: 'restaurants', body, request: request as AdminRequest });
+  };
+
+  const storeUpload = async (request: Request) => {
+    if (!request.file) return null;
+    if (!dependencies.upload) throw new Error('R2 image uploads are not configured');
+    return dependencies.upload(request.file, 'restaurants');
+  };
+
+  const removeStoredObject = async (key: string | null | undefined) => {
+    if (!key || !dependencies.deleteUpload) return;
+    try {
+      await dependencies.deleteUpload(key);
+    } catch (error) {
+      console.warn('[admin] failed to delete restaurant cover', key, error);
+    }
+  };
+
+  const currentCoverKey = async (restaurantId: string) => {
+    const result = await dependencies.query<{ cover_object_key: string | null }>(
+      'select cover_object_key from restaurants where id=$1',
+      [restaurantId],
+    );
+    return result.rows[0]?.cover_object_key ?? null;
   };
 
   router.get('/restaurants', safeHandler(async (request, response) => {
@@ -677,23 +703,32 @@ function registerRestaurants(router: Router, dependencies: AdminDependencies): v
     response.type('html').send(renderForm(request, { status: 'published', state: 'NSW' }, {}));
   });
 
-  router.post('/restaurants', safeHandler(async (request, response) => {
+  router.post('/restaurants', uploadMiddleware, safeHandler(async (request, response) => {
+    const uploadError = (request as AdminRequest).adminUploadError;
     const parsed = restaurantSchema.safeParse(values(request));
-    if (!parsed.success) {
-      response.status(400).type('html').send(renderForm(request, values(request), errorsFromIssues(parsed.error.issues)));
+    if (!parsed.success || uploadError) {
+      const errors = parsed.success ? {} : errorsFromIssues(parsed.error.issues);
+      response.status(400).type('html').send(renderForm(request, values(request), errors, false, uploadError));
       return;
     }
+    let stored: Awaited<ReturnType<AdminUpload>> | null = null;
+    let uploadAttached = false;
     try {
       const data = parsed.data;
+      stored = await storeUpload(request);
       const result = await dependencies.query<{ id: string }>(`
         insert into restaurants
-          (slug, name, address, suburb, state, postcode, phone, website_url, latitude, longitude, hours_text, status, source, created_by, published_at)
+          (slug, name, address, suburb, state, postcode, phone, website_url, latitude, longitude, hours_text, status, cover_object_key, source, created_by, published_at)
         values
-          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'admin',$13,case when $12 = 'published' then now() else null end)
+          ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'admin',$14,case when $12 = 'published' then now() else null end)
         returning id
-      `, [uniqueSlug(data.name), data.name, data.address, data.suburb, data.state, data.postcode, data.phone, data.website_url, data.latitude, data.longitude, data.hours_text, data.status, actorId(request)]);
-      response.redirect(303, `/admin/restaurants/${result.rows[0]?.id}?created=1`);
+      `, [uniqueSlug(data.name), data.name, data.address, data.suburb, data.state, data.postcode, data.phone, data.website_url, data.latitude, data.longitude, data.hours_text, data.status, stored?.key ?? null, actorId(request)]);
+      const id = result.rows[0]?.id;
+      if (!id) throw new Error('Restaurant insert did not return an id');
+      uploadAttached = Boolean(stored);
+      response.redirect(303, `/admin/restaurants/${id}?created=1`);
     } catch (error) {
+      if (!uploadAttached) await removeStoredObject(stored?.key);
       if (!isUniqueViolation(error)) throw error;
       response.status(409).type('html').send(renderForm(request, values(request), {}, false, 'A restaurant with this name and address already exists.'));
     }
@@ -707,27 +742,66 @@ function registerRestaurants(router: Router, dependencies: AdminDependencies): v
     response.type('html').send(renderForm(request, row, {}, true, notice?.message, notice?.type));
   }));
 
-  router.post('/restaurants/:id', safeHandler(async (request, response) => {
+  router.post('/restaurants/:id', uploadMiddleware, safeHandler(async (request, response) => {
+    const uploadError = (request as AdminRequest).adminUploadError;
     const parsed = restaurantSchema.safeParse(values(request));
-    if (!parsed.success) {
-      response.status(400).type('html').send(renderForm(request, { id: request.params.id, ...values(request) }, errorsFromIssues(parsed.error.issues), true));
+    if (!parsed.success || uploadError) {
+      const errors = parsed.success ? {} : errorsFromIssues(parsed.error.issues);
+      const coverObjectKey = await currentCoverKey(routeParam(request, 'id'));
+      response.status(400).type('html').send(renderForm(request, { id: request.params.id, ...values(request), cover_object_key: coverObjectKey }, errors, true, uploadError));
       return;
     }
+    let stored: Awaited<ReturnType<AdminUpload>> | null = null;
+    let uploadAttached = false;
     try {
       const data = parsed.data;
-      const result = await dependencies.query<{ id: string }>(`
-        update restaurants set
+      stored = await storeUpload(request);
+      const result = await dependencies.query<{ id: string; previous_cover_object_key: string | null }>(`
+        with previous as materialized (
+          select id, cover_object_key from restaurants where id=$1 for update
+        )
+        update restaurants as restaurant set
           name=$2,address=$3,suburb=$4,state=$5,postcode=$6,phone=$7,website_url=$8,
           latitude=$9,longitude=$10,hours_text=$11,status=$12,
-          published_at=case when $12='published' then coalesce(published_at,now()) else published_at end
-        where id=$1 returning id
-      `, [request.params.id, data.name, data.address, data.suburb, data.state, data.postcode, data.phone, data.website_url, data.latitude, data.longitude, data.hours_text, data.status]);
-      if (!result.rows[0]) { response.status(404).send('Restaurant not found'); return; }
+          cover_object_key=coalesce($13::text,restaurant.cover_object_key),
+          published_at=case when $12='published' then coalesce(restaurant.published_at,now()) else restaurant.published_at end
+        from previous
+        where restaurant.id=previous.id
+        returning restaurant.id, previous.cover_object_key as previous_cover_object_key
+      `, [request.params.id, data.name, data.address, data.suburb, data.state, data.postcode, data.phone, data.website_url, data.latitude, data.longitude, data.hours_text, data.status, stored?.key ?? null]);
+      const updated = result.rows[0];
+      if (!updated) {
+        await removeStoredObject(stored?.key);
+        stored = null;
+        response.status(404).send('Restaurant not found');
+        return;
+      }
+      uploadAttached = Boolean(stored);
+      if (stored && updated.previous_cover_object_key !== stored.key) {
+        await removeStoredObject(updated.previous_cover_object_key);
+      }
       response.redirect(303, `/admin/restaurants/${request.params.id}?saved=1`);
     } catch (error) {
+      if (!uploadAttached) await removeStoredObject(stored?.key);
       if (!isUniqueViolation(error)) throw error;
-      response.status(409).type('html').send(renderForm(request, { id: request.params.id, ...values(request) }, {}, true, 'A restaurant with this name and address already exists.'));
+      const coverObjectKey = await currentCoverKey(routeParam(request, 'id'));
+      response.status(409).type('html').send(renderForm(request, { id: request.params.id, ...values(request), cover_object_key: coverObjectKey }, {}, true, 'A restaurant with this name and address already exists.'));
     }
+  }));
+
+  router.post('/restaurants/:id/photo/delete', safeHandler(async (request, response) => {
+    const result = await dependencies.query<{ previous_cover_object_key: string | null }>(`
+      with previous as materialized (
+        select id, cover_object_key from restaurants where id=$1 for update
+      )
+      update restaurants as restaurant set cover_object_key=null
+      from previous
+      where restaurant.id=previous.id
+      returning previous.cover_object_key as previous_cover_object_key
+    `, [request.params.id]);
+    if (!result.rows[0]) { response.status(404).send('Restaurant not found'); return; }
+    await removeStoredObject(result.rows[0].previous_cover_object_key);
+    response.redirect(303, `/admin/restaurants/${request.params.id}?saved=1`);
   }));
 
   router.post('/restaurants/:id/archive', safeHandler(async (request, response) => {
@@ -849,7 +923,7 @@ function registerDishes(router: Router, dependencies: AdminDependencies): void {
     try {
       const data = parsed.data;
       const result = await dependencies.query<{ id: string }>(`
-        update dishes set canonical_name=$2,cuisine=$3,dish_type=$4,description=$5,status=$6,
+        update dishes set canonical_name=$2,cuisine=$3,dish_type=$4,description=$5,status=$6,source='admin',
           published_at=case when $6='published' then coalesce(published_at,now()) else published_at end
         where id=$1 returning id
       `, [request.params.id, data.canonical_name, data.cuisine, data.dish_type, data.description, data.status]);

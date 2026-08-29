@@ -19,7 +19,7 @@ import {
   SearchField,
   SegmentedControl,
 } from '@/components/tabs';
-import { fallbackFoodImage, foodImages } from '@/data/images';
+import { fallbackFoodImage, fallbackRestaurantImage, foodImages } from '@/data/images';
 import { money, versionDistance, type DishVersion } from '@/data/mockData';
 import {
   hasKnownDistance,
@@ -40,6 +40,7 @@ type DistanceFilter = 500 | 1000 | 2000;
 type CatalogRowModel = {
   key: string;
   image: ImageSourcePropType;
+  fallbackImage?: ImageSourcePropType;
   title: string;
   subtitle: string;
   onPress: () => void;
@@ -118,7 +119,8 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
 
       return [{
         key: restaurant.key,
-        image: foodImages[first.id] ?? fallbackFoodImage,
+        image: first.restaurantImageUrl ? { uri: first.restaurantImageUrl } : fallbackRestaurantImage,
+        fallbackImage: fallbackRestaurantImage,
         title: restaurant.name,
         subtitle: `${first.cuisine} · ${versionDistance(first)} · ${matchingVersions.length} ${matchingVersions.length === 1 ? 'dish rated' : 'dishes rated'}`,
         onPress: () => onOpenRestaurant(restaurant.name, first.id),
@@ -218,6 +220,7 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         <View style={styles.list}>
           {rows.map((row) => (
             <CatalogRow
+              fallbackImage={row.fallbackImage}
               image={row.image}
               key={row.key}
               onPress={row.onPress}

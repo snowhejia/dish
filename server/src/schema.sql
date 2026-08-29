@@ -76,6 +76,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
   website_url text,
   latitude double precision,
   longitude double precision,
+  cover_object_key text,
   timezone text NOT NULL DEFAULT 'Australia/Sydney',
   hours_text text,
   status text NOT NULL DEFAULT 'draft',
@@ -98,6 +99,10 @@ CREATE TABLE IF NOT EXISTS restaurants (
     )
   )
 );
+
+-- Existing Railway databases predate restaurant cover images. Keep the schema
+-- bootstrap idempotent while adding the column in place.
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS cover_object_key text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS restaurants_branch_identity_idx
   ON restaurants (lower(name), lower(COALESCE(address, '')))
