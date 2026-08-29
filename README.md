@@ -8,9 +8,23 @@
   <strong>Find the dish you want—then decide where to eat it.</strong>
 </p>
 
-Dish. is a cross-platform food discovery app built around dishes, not just
-restaurants. It brings together restaurant-specific versions of the same dish so
-people can compare nearby options and choose what to eat with confidence.
+<p align="center">
+  Built for SYNCS HACK 2026 · <em>Blocks That Make Up the World</em>
+</p>
+
+## The idea
+
+Most food discovery platforms treat the restaurant as their basic unit. But every
+restaurant is made of smaller building blocks: its individual dishes. A single
+restaurant rating cannot tell you which bowl of ramen, banh mi or curry is actually
+worth ordering. Dish. shifts discovery down one level and makes the dish the primary
+block.
+
+Those blocks are interconnected, not isolated. One dish can connect several
+restaurant-specific versions, while different dishes connect through shared
+restaurants, cuisines, locations and the people who review them. Dish. makes those
+relationships explorable, turning scattered menu items into shared local food
+knowledge.
 
 ## Features
 
