@@ -474,6 +474,7 @@ type VersionDto = {
   imageUrl?: string;
   gallery?: string[];
   restaurantImageUrl?: string;
+  isNew: boolean;
   source: 'prototype' | 'real' | 'admin';
 };
 type ReviewDto = {
@@ -504,7 +505,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       cuisine: string; dish_type: string | null; metres: string | null; distance_label: string | null; price: string | null;
       would_eat_again: number | null; votes: number; tags: string[]; address: string | null;
       phone: string | null; hours: string | null; latitude: number | null; longitude: number | null;
-      restaurant_cover_object_key: string | null; gallery_count: number; object_keys: string[]; source: string;
+      restaurant_cover_object_key: string | null; gallery_count: number; object_keys: string[]; is_new: boolean; source: string;
     }>(
       `SELECT
          COALESCE(v.legacy_key, v.id::text) AS id,
@@ -522,6 +523,9 @@ async function catalogSnapshot(): Promise<CatalogDto> {
          r.cover_object_key AS restaurant_cover_object_key,
          COALESCE(s.gallery_count, 0) AS gallery_count,
          COALESCE(photo_list.object_keys, '{}'::text[]) AS object_keys,
+         v.published_at IS NOT NULL
+           AND v.published_at >= now() - interval '3 days'
+           AND v.published_at <= now() AS is_new,
          v.source
        FROM dish_versions v
        JOIN dishes d ON d.id = v.dish_id
@@ -588,6 +592,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       ...(restaurantImageUrl ? { restaurantImageUrl } : {}),
       galleryCount: Math.max(row.gallery_count, gallery.length),
       ...(gallery[0] ? { imageUrl: gallery[0], gallery } : {}),
+      isNew: row.is_new,
       source: row.source === 'prototype' ? 'prototype' : row.source === 'admin' ? 'admin' : 'real',
     };
   });

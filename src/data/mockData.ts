@@ -33,6 +33,7 @@ export type DishVersion = {
   restaurantId?: string;
   latitude?: number | null;
   longitude?: number | null;
+  isNew?: boolean;
   source?: 'prototype' | 'real' | 'admin';
 };
 

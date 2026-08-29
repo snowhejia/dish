@@ -34,6 +34,11 @@ export function DiscoverVersionCard({
     >
       <View style={styles.imageFrame}>
         <Image contentFit="cover" source={foodImages[version.id] ?? fallbackFoodImage} style={StyleSheet.absoluteFill} />
+        {version.isNew ? (
+          <View style={styles.newBadge}>
+            <Text style={styles.newLabel}>NEW</Text>
+          </View>
+        ) : null}
         {moreCount > 0 ? (
           <BlurView intensity={18} tint="dark" style={styles.moreBadge}>
             <Text style={styles.moreLabel}>+{moreCount} MORE</Text>
@@ -73,6 +78,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing[8],
     top: spacing[8],
+  },
+  newBadge: {
+    backgroundColor: colors.yellow,
+    borderRadius: radii.badge,
+    left: spacing[8],
+    paddingHorizontal: spacing[7],
+    paddingVertical: spacing[5],
+    position: 'absolute',
+    top: spacing[8],
+  },
+  newLabel: {
+    color: colors.ink,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.45,
+    lineHeight: 11,
   },
   moreLabel: {
     color: colors.white,
