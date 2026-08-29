@@ -1,5 +1,7 @@
 export type RealFoodRecord = {
   id: string;
+  canonicalDishId: string;
+  canonicalDishName: string;
   name: string;
   tags: readonly string[];
   price: number;
@@ -21,6 +23,8 @@ export type RealFoodRecord = {
 export const realFoodRecords = [
   {
     id: 'real-single-single-burger',
+    canonicalDishId: 'real-beef-burger',
+    canonicalDishName: 'Beef Burger',
     name: 'Single Single Burger',
     tags: ['Budget', 'Meat Lover', 'Near USYD'],
     price: 9.9,
@@ -36,6 +40,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-classic-burger',
+    canonicalDishId: 'real-beef-burger',
+    canonicalDishName: 'Beef Burger',
     name: 'Classic Burger',
     tags: ['Budget', 'Meat Lover'],
     price: 16,
@@ -51,6 +57,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-bl-chicken',
+    canonicalDishId: 'real-chicken-burger',
+    canonicalDishName: 'Chicken Burger',
     name: 'BL Chicken',
     tags: ['Big Portion', 'Meat Lover', 'Rich'],
     price: 22,
@@ -66,6 +74,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-grass-fed-beef-burger',
+    canonicalDishId: 'real-beef-burger',
+    canonicalDishName: 'Beef Burger',
     name: 'Grass Fed Beef Burger',
     tags: ['Meat Lover', 'Rich'],
     price: 29,
@@ -81,6 +91,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-kani-miso-ramen',
+    canonicalDishId: 'real-miso-ramen',
+    canonicalDishName: 'Miso Ramen',
     name: 'Kani Miso Ramen',
     tags: ['Big Portion', 'Near USYD', 'Rich'],
     price: 25,
@@ -96,6 +108,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-wagyu-mazesoba',
+    canonicalDishId: 'real-mazesoba',
+    canonicalDishName: 'Mazesoba',
     name: 'Wagyu Mazesoba',
     tags: ['Big Portion', 'Meat Lover', 'Rich'],
     price: 36,
@@ -111,6 +125,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-lobster-bisque-ramen',
+    canonicalDishId: 'real-lobster-bisque-ramen',
+    canonicalDishName: 'Lobster Bisque Ramen',
     name: 'Lobster Bisque Ramen',
     tags: ['Big Portion', 'Rich'],
     price: 45,
@@ -126,6 +142,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-tan-tan-ramen',
+    canonicalDishId: 'real-tantanmen',
+    canonicalDishName: 'Tantanmen',
     name: 'Tan-Tan Ramen',
     tags: ['Meat Lover', 'Rich', 'Spicy'],
     price: 22,
@@ -141,6 +159,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-signature-toripaitan',
+    canonicalDishId: 'real-tori-paitan-ramen',
+    canonicalDishName: 'Tori Paitan Ramen',
     name: 'Signature Toripaitan',
     tags: ['Big Portion', 'Meat Lover', 'Rich'],
     price: 26,
@@ -156,6 +176,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-spicy-lamb-miso',
+    canonicalDishId: 'real-miso-ramen',
+    canonicalDishName: 'Miso Ramen',
     name: 'Spicy Lamb Miso',
     tags: ['Meat Lover', 'Rich', 'Spicy'],
     price: 32,
@@ -171,6 +193,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-crafted-10-spices-tantanmen',
+    canonicalDishId: 'real-tantanmen',
+    canonicalDishName: 'Tantanmen',
     name: 'Crafted 10-Spices Tantanmen',
     tags: ['Big Portion', 'Meat Lover', 'Rich', 'Spicy'],
     price: 26.4,
@@ -186,6 +210,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-american-cheeseburger',
+    canonicalDishId: 'real-beef-burger',
+    canonicalDishName: 'Beef Burger',
     name: 'American Cheeseburger',
     tags: ['Meat Lover', 'Rich'],
     price: 25,
@@ -201,6 +227,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-gidley-burger',
+    canonicalDishId: 'real-beef-burger',
+    canonicalDishName: 'Beef Burger',
     name: 'The Gidley Burger',
     tags: ['Big Portion', 'Meat Lover', 'Rich'],
     price: 26,
@@ -216,6 +244,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-parrillero',
+    canonicalDishId: 'real-hot-dog',
+    canonicalDishName: 'Hot Dog',
     name: 'Parrillero',
     tags: ['Budget', 'Near USYD', 'Quick Bite', 'Rich', 'Student Discount'],
     price: 12,
@@ -231,6 +261,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-xian-broad-noodles-chilli',
+    canonicalDishId: 'real-oil-splashed-broad-noodles',
+    canonicalDishName: 'Oil-Splashed Broad Noodles',
     name: "Signature Xi'an Broad Noodles with Chilli（油泼扯面）",
     tags: ['Budget', 'Meat-Free', 'Near USYD', 'Spicy', 'Veggie Packed'],
     price: 13.8,
@@ -246,6 +278,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-mini-meat-box',
+    canonicalDishId: 'real-meat-box',
+    canonicalDishName: 'Meat Box',
     name: 'Mini Meat Box',
     tags: ['Big Portion', 'Budget', 'Meat Lover', 'On Campus', 'Quick Bite', 'Rich'],
     price: 14,
@@ -261,6 +295,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-chicken-giblet-noodles',
+    canonicalDishId: 'real-chicken-giblet-noodles',
+    canonicalDishName: 'Pickled Chilli Chicken Giblet Noodles（泡椒鸡杂拌面）',
     name: 'Pickled Chilli Chicken Giblet Noodles（泡椒鸡杂拌面）',
     tags: ['Budget', 'Near USYD', 'Spicy', 'Veggie Packed'],
     price: 16.8,
@@ -276,6 +312,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-tender-beef-pickled-chilies',
+    canonicalDishId: 'real-pickled-chilli-beef-stir-fry',
+    canonicalDishName: 'Beef with Pickled Chillies',
     name: 'Str-fried Tender Beef with Pickled Chilies（泡椒牛肉）',
     tags: ['Big Portion', 'Rich', 'Spicy'],
     price: 26.8,
@@ -291,6 +329,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-spicy-sour-shredded-potato',
+    canonicalDishId: 'real-spicy-sour-shredded-potato',
+    canonicalDishName: 'Spicy & Sour Shredded Potato',
     name: 'Spicy & Sour Shredded Potato',
     tags: ['Big Portion', 'Spicy', 'Veggie Packed'],
     price: 18.8,
@@ -306,6 +346,8 @@ export const realFoodRecords = [
   },
   {
     id: 'real-crispy-sweet-sour-pork',
+    canonicalDishId: 'real-crispy-sweet-sour-pork',
+    canonicalDishName: 'Crispy Sweet & Sour Pork',
     name: 'Crispy Sweet and Sour Pork',
     tags: ['Big Portion', 'Meat Lover', 'Sweet & Sour'],
     price: 29.8,

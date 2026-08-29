@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Dishy } from '@/components/brand';
 import { BottomTabSpacer, SavedCard, SegmentedControl } from '@/components/tabs';
 import { foodImages } from '@/data/images';
-import { dishById, dishForVersion, money, versionById, versionsOfDish } from '@/data/mockData';
+import { dishById, money, versionById, versionMenuName, versionsOfDish } from '@/data/mockData';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type SavedTab = 'dishes' | 'versions';
@@ -51,7 +51,7 @@ export function SavedScreen({ onBrowseDiscover, onOpenDish, onOpenVersion }: Sav
         key: savedId,
         kind: 'VERSION' as const,
         image: foodImages[version.id],
-        title: dishForVersion(version).name,
+        title: versionMenuName(version),
         subtitle: `${version.restaurant} · ${money(version.price)} · ${version.wouldEatAgain}%`,
         onPress: () => onOpenVersion(version.id),
       };

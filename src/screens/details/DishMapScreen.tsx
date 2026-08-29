@@ -6,7 +6,14 @@ import { Dishy } from '@/components/brand';
 import { BackIcon, ChevronRightIcon } from '@/components/icons';
 import { DetailScreen, FoodImage, IconButton } from '@/components/details';
 import { foodImages } from '@/data/images';
-import { dishById, money, versionAvailability, versionDistance, versionsOfDish } from '@/data/mockData';
+import {
+  dishById,
+  money,
+  versionAvailability,
+  versionDistance,
+  versionMenuName,
+  versionsOfDish,
+} from '@/data/mockData';
 import { colors, radii, shadows, sizes } from '@/theme/tokens';
 
 export type DishMapScreenProps = {
@@ -103,7 +110,7 @@ export function DishMapScreen({
           <FoodImage
             source={foodImages[selected.id]}
             style={StyleSheet.absoluteFill}
-            accessibilityLabel={`${dish.name} at ${selected.restaurant}`}
+            accessibilityLabel={`${versionMenuName(selected)} at ${selected.restaurant}`}
           />
         </View>
         <View style={styles.cardCopy}>

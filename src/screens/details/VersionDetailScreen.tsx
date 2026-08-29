@@ -22,6 +22,7 @@ import {
   versionAvailability,
   versionById,
   versionDistance,
+  versionMenuName,
   versions,
   versionsOfDish,
   type DishVersion,
@@ -69,7 +70,7 @@ export function VersionDetailScreen({
           <FoodImage
             source={foodImages[version.id]}
             style={StyleSheet.absoluteFill}
-            accessibilityLabel={`${dish.name} at ${version.restaurant}`}
+            accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}`}
             contentPosition={galleryPositions[galleryIndex % galleryPositions.length]}
           />
           <HeroFade />
@@ -97,7 +98,7 @@ export function VersionDetailScreen({
         </View>
 
         <View style={styles.summary}>
-          <Text style={styles.title}>{dish.name}</Text>
+          <Text style={styles.title}>{versionMenuName(version)}</Text>
           <Pressable
             onPress={() => onOpenRestaurant?.(version.restaurant)}
             style={({ pressed }) => [styles.restaurantLink, pressed && styles.pressed]}
@@ -212,7 +213,6 @@ function RelatedStrip({
         contentContainerStyle={styles.relatedList}
       >
         {items.map((item) => {
-          const itemDish = dishForVersion(item);
           return (
             <Pressable
               key={item.id}
@@ -220,9 +220,9 @@ function RelatedStrip({
               style={({ pressed }) => [styles.relatedCard, pressed && styles.pressed]}
             >
               <View style={styles.relatedImage}>
-                <FoodImage source={foodImages[item.id]} style={StyleSheet.absoluteFill} accessibilityLabel={itemDish.name} />
+                <FoodImage source={foodImages[item.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(item)} />
               </View>
-              <Text numberOfLines={2} style={styles.relatedName}>{showDishName ? itemDish.name : item.restaurant}</Text>
+              <Text numberOfLines={2} style={styles.relatedName}>{showDishName ? versionMenuName(item) : item.restaurant}</Text>
               <Text style={styles.relatedMeta}>{money(item.price)} · {item.wouldEatAgain}%</Text>
             </Pressable>
           );

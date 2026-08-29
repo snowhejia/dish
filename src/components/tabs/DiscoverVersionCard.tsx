@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Dish, DishVersion } from '@/data/mockData';
-import { money, versionDistance } from '@/data/mockData';
+import { money, versionDistance, versionMenuName } from '@/data/mockData';
 import { foodImages } from '@/data/images';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -21,7 +21,12 @@ export function DiscoverVersionCard({
   onPress: () => void;
 }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={{ width }}>
+    <Pressable
+      accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}, ${dish.name}`}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{ width }}
+    >
       <View style={styles.imageFrame}>
         <Image contentFit="cover" source={foodImages[version.id]} style={StyleSheet.absoluteFill} />
         {moreCount > 0 ? (
@@ -32,7 +37,7 @@ export function DiscoverVersionCard({
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={2} style={styles.title}>
-          {dish.name}
+          {versionMenuName(version)}
         </Text>
         <Text numberOfLines={1} style={styles.restaurant}>
           {version.restaurant}

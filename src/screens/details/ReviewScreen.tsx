@@ -22,7 +22,7 @@ import {
   StickyFooter,
 } from '@/components/details';
 import { foodImages } from '@/data/images';
-import { dishForVersion, versionById } from '@/data/mockData';
+import { versionById, versionMenuName } from '@/data/mockData';
 import { colors, radii, sizes } from '@/theme/tokens';
 
 export type ReviewVerdict = 'YES' | 'NO';
@@ -47,7 +47,6 @@ export function ReviewScreen({
   onPostReview,
 }: ReviewScreenProps) {
   const version = versionById(versionId);
-  const dish = dishForVersion(version);
   const [verdict, setVerdict] = useState<ReviewVerdict>();
   const [reviewText, setReviewText] = useState('');
   const [pricePaid, setPricePaid] = useState('16.80');
@@ -85,10 +84,10 @@ export function ReviewScreen({
         >
           <View style={styles.versionSummary}>
             <View style={styles.summaryPhoto}>
-              <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={dish.name} />
+              <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
             </View>
             <View style={styles.summaryCopy}>
-              <Text numberOfLines={1} style={styles.dishName}>{dish.name}</Text>
+              <Text numberOfLines={1} style={styles.dishName}>{versionMenuName(version)}</Text>
               <Text numberOfLines={1} style={styles.restaurant}>{version.restaurant}</Text>
             </View>
           </View>

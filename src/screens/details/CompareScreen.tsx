@@ -8,6 +8,7 @@ import {
   dishById,
   money,
   versionDistance,
+  versionMenuName,
   versionsOfDish,
   type DishVersion,
 } from '@/data/mockData';
@@ -54,7 +55,7 @@ export function CompareScreen({
                 <FoodImage
                   source={foodImages[column.id]}
                   style={StyleSheet.absoluteFill}
-                  accessibilityLabel={`${dish.name} at ${column.restaurant}`}
+                  accessibilityLabel={`${versionMenuName(column)} at ${column.restaurant}`}
                 />
               </View>
               <Text numberOfLines={2} style={styles.restaurant}>{column.restaurant}</Text>

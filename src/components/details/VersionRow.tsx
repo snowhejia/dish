@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronRightIcon } from '@/components/icons';
 import { foodImages } from '@/data/images';
-import { dishForVersion, money, versionDistance, type DishVersion } from '@/data/mockData';
+import { money, versionDistance, versionMenuName, type DishVersion } from '@/data/mockData';
 import { colors, radii, sizes } from '@/theme/tokens';
 
 import { FoodImage, ProgressBar } from './DetailPrimitives';
@@ -24,10 +24,11 @@ export function VersionRow({
   compact = false,
   showChevron = false,
 }: VersionRowProps) {
-  const dish = dishForVersion(version);
   const imageSize = compact ? sizes.restaurantThumb : sizes.versionThumb;
   return (
     <Pressable
+      accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}`}
+      accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -41,10 +42,10 @@ export function VersionRow({
         </View>
       ) : null}
       <View style={[styles.imageFrame, { width: imageSize, height: imageSize }, compact && styles.imageCompact]}>
-        <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={dish.name} />
+        <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
       </View>
       <View style={styles.copy}>
-        <Text numberOfLines={1} style={styles.restaurant}>{compact ? dish.name : version.restaurant}</Text>
+        <Text numberOfLines={1} style={styles.restaurant}>{compact ? versionMenuName(version) : version.restaurant}</Text>
         <Text numberOfLines={1} style={styles.meta}>
           {compact
             ? `${money(version.price)} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`

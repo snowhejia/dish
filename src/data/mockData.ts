@@ -9,6 +9,7 @@ export type Dish = {
 export type DishVersion = {
   id: string;
   dishId: string;
+  menuName?: string;
   restaurant: string;
   cuisine: string;
   metres: number;
@@ -60,15 +61,21 @@ const prototypeVersions: DishVersion[] = [
   { id: 'porkroll-bakehouse', dishId: 'porkroll', restaurant: 'Newtown Bakehouse', cuisine: 'Vietnamese', metres: 1250, price: 13.5, wouldEatAgain: 82, votes: 54, tags: ['Soft roll', 'Mild'] },
 ];
 
-export const realDishes: Dish[] = realFoodRecords.map((record) => ({
-  id: record.id,
-  name: record.name,
-  cuisine: record.category,
-}));
+export const realDishes: Dish[] = Array.from(new Map(
+  realFoodRecords.map((record) => [
+    record.canonicalDishId,
+    {
+      id: record.canonicalDishId,
+      name: record.canonicalDishName,
+      cuisine: record.category,
+    },
+  ]),
+).values());
 
 export const realVersions: DishVersion[] = realFoodRecords.map((record) => ({
   id: realVersionId(record.id),
-  dishId: record.id,
+  dishId: record.canonicalDishId,
+  menuName: record.name,
   restaurant: record.restaurant,
   cuisine: record.category,
   metres: 0,
@@ -128,6 +135,7 @@ export const versionById = (id?: string) => versions.find((version) => version.i
   ?? versions[0];
 export const versionsOfDish = (dishId?: string) => versions.filter((version) => version.dishId === (dishId ?? 'beef'));
 export const dishForVersion = (version: DishVersion) => dishById(version.dishId);
+export const versionMenuName = (version: DishVersion) => version.menuName ?? dishForVersion(version).name;
 
 export const money = (price: number) => `$${price.toFixed(2)}`;
 export const distance = (metres: number) => metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${metres} m`;
