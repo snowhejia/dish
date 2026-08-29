@@ -4,26 +4,24 @@
     "slug": "dish",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon-dish.png",
     "scheme": "dish",
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "app.dish.mobile",
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/app-icon-dish.png"
     },
     "android": {
       "package": "app.dish.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#EDE9FF",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/images/app-icon-dish.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/app-icon-dish.png"
     },
     "plugins": [
       "expo-router",
