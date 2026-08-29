@@ -32,8 +32,15 @@ yarn-error.*
 
 # local env files
 .env
-.env*.local
-server/.env
+.env.*
+!.env.example
+server/.env*
+.npmrc
+
+# private credentials and signing material
+*.keystore
+credentials*.json
+service-account*.json
 
 # backend build/runtime
 server/dist/
