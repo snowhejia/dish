@@ -154,6 +154,30 @@ h2 { font-size: 19px; letter-spacing: -.02em; }
 .data-table tr:hover td { background: #fdfcff; }
 .entity-link { color: var(--ink); font-weight: 700; text-decoration: none; }
 .entity-link:hover { color: var(--purple-dark); }
+.thumbnail-cell { width: 88px; }
+.version-thumbnail-link { display: inline-flex; border-radius: 10px; text-decoration: none; }
+.version-thumbnail-link:focus-visible { outline: 3px solid var(--lavender); outline-offset: 2px; }
+.version-thumbnail,
+.version-thumbnail-placeholder {
+  display: flex;
+  width: 64px;
+  height: 48px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--soft);
+}
+.version-thumbnail { object-fit: cover; }
+.version-thumbnail-placeholder {
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
 
 .badge {
   display: inline-flex;

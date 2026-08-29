@@ -880,6 +880,7 @@ function registerVersions(router: Router, dependencies: AdminDependencies): void
     restaurant_name?: string;
     tags?: string[] | null;
     cover_object_key?: string | null;
+    cover_mime_type?: string | null;
     media_id?: string | null;
     updated_at?: Date;
   };
@@ -951,22 +952,42 @@ function registerVersions(router: Router, dependencies: AdminDependencies): void
     const search = text(request.query.q).trim();
     const result = await dependencies.query<VersionRow>(`
       select v.id,v.menu_name,v.listed_price,v.status,v.updated_at,
-             d.canonical_name as dish_name,r.name as restaurant_name
-      from dish_versions v join dishes d on d.id=v.dish_id join restaurants r on r.id=v.restaurant_id
+             d.canonical_name as dish_name,r.name as restaurant_name,
+             cover.object_key as cover_object_key,cover.mime_type as cover_mime_type
+      from dish_versions v
+      join dishes d on d.id=v.dish_id
+      join restaurants r on r.id=v.restaurant_id
+      left join lateral (
+        select m.object_key,m.mime_type
+        from version_media vm
+        join media m on m.id=vm.media_id
+        where vm.version_id=v.id and m.status='approved'
+        order by vm.is_cover desc,vm.sort_order,m.created_at,m.id
+        limit 1
+      ) cover on true
       where ($1='' or coalesce(v.menu_name,d.canonical_name) ilike '%'||$1||'%' or r.name ilike '%'||$1||'%')
       order by (v.status='archived'), lower(coalesce(v.menu_name,d.canonical_name)), lower(r.name)
       limit 300
     `, [search]);
-    const rows = result.rows.map((row) => `<tr>
-      <td data-label="Version"><a class="entity-link" href="/admin/versions/${attr(row.id)}">${escapeHtml(row.menu_name ?? row.dish_name)}</a></td>
-      <td data-label="Restaurant">${escapeHtml(row.restaurant_name)}</td>
-      <td data-label="Dish">${escapeHtml(row.dish_name)}</td>
-      <td data-label="Price">${escapeHtml(formatMoney(row.listed_price))}</td>
-      <td data-label="Status">${statusBadge(row.status)}</td>
-      <td class="actions-cell"><a class="button secondary small" href="/admin/versions/${attr(row.id)}">Edit</a></td>
-    </tr>`).join('');
+    const rows = result.rows.map((row) => {
+      const versionName = row.menu_name ?? row.dish_name ?? 'Dish version';
+      const coverUrl = mediaUrl(row.cover_object_key);
+      const browserPreviewable = ['image/jpeg', 'image/png', 'image/webp'].includes(text(row.cover_mime_type).toLowerCase());
+      const thumbnail = coverUrl && browserPreviewable
+        ? `<a class="version-thumbnail-link" href="/admin/versions/${attr(row.id)}" aria-label="Edit ${attr(versionName)}"><img class="version-thumbnail" src="${attr(coverUrl)}" alt="${attr(`${versionName} at ${row.restaurant_name ?? 'restaurant'}`)}" width="64" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer"></a>`
+        : `<span class="version-thumbnail-placeholder" aria-label="${row.cover_object_key ? 'Photo preview unavailable' : 'No photo'}">${row.cover_object_key ? 'No preview' : 'No photo'}</span>`;
+      return `<tr>
+        <td class="thumbnail-cell" data-label="Photo">${thumbnail}</td>
+        <td data-label="Version"><a class="entity-link" href="/admin/versions/${attr(row.id)}">${escapeHtml(versionName)}</a></td>
+        <td data-label="Restaurant">${escapeHtml(row.restaurant_name)}</td>
+        <td data-label="Dish">${escapeHtml(row.dish_name)}</td>
+        <td data-label="Price">${escapeHtml(formatMoney(row.listed_price))}</td>
+        <td data-label="Status">${statusBadge(row.status)}</td>
+        <td class="actions-cell"><a class="button secondary small" href="/admin/versions/${attr(row.id)}">Edit</a></td>
+      </tr>`;
+    }).join('');
     const body = `<div class="toolbar"><form method="get" action="/admin/versions"><input class="field-control" type="search" name="q" value="${attr(search)}" placeholder="Search dish or restaurant"><button class="button secondary" type="submit">Search</button></form></div>
-      <section class="panel">${rows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Version</th><th>Restaurant</th><th>Dish</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty">No versions found.</div>'}</section>`;
+      <section class="panel">${rows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Photo</th><th>Version</th><th>Restaurant</th><th>Dish</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty">No versions found.</div>'}</section>`;
     response.type('html').send(layout({ title: 'Dish versions', active: 'versions', subtitle: `${result.rows.length} records`, body, request: request as AdminRequest, action: '<a class="button" href="/admin/versions/new">Add version</a>', alert: messageFromQuery(request) }));
   }));
 
