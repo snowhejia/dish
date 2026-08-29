@@ -179,6 +179,39 @@ export function AddVersionScreen({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
+            <FormSection label="PHOTO">
+              <Pressable
+                accessibilityLabel={photoUri ? 'Change dish photo' : 'Add dish photo'}
+                accessibilityRole="button"
+                onPress={pickPhoto}
+                style={({ pressed }) => [
+                  styles.photoButton,
+                  photoUri && styles.photoButtonFilled,
+                  pressed && styles.pressed,
+                ]}
+              >
+                {photoUri ? (
+                  <>
+                    <FoodImage
+                      accessibilityLabel="Selected dish photo"
+                      source={{ uri: photoUri }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.changePhotoBadge}>
+                      <Text style={styles.changePhotoLabel}>Change photo</Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.photoEmptyContent}>
+                    <View style={styles.photoIcon}>
+                      <PlusIcon color={colors.purple} size={20} strokeWidth={1.8} />
+                    </View>
+                    <Text style={styles.photoLabel}>Add a dish photo</Text>
+                  </View>
+                )}
+              </Pressable>
+            </FormSection>
+
             <FormSection
               accessory={(
                 <SourceToggle
@@ -295,24 +328,6 @@ export function AddVersionScreen({
                   value={note}
                 />
               </View>
-            </FormSection>
-
-            <FormSection label="PHOTO">
-              <Pressable
-                accessibilityLabel={photoUri ? 'Change dish photo' : 'Add dish photo'}
-                accessibilityRole="button"
-                onPress={pickPhoto}
-                style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
-              >
-                {photoUri ? (
-                  <FoodImage accessibilityLabel="Selected dish photo" source={{ uri: photoUri }} style={styles.photoPreview} />
-                ) : (
-                  <View style={styles.photoIcon}>
-                    <PlusIcon color={colors.purple} size={18} strokeWidth={1.8} />
-                  </View>
-                )}
-                <Text style={styles.photoLabel}>{photoUri ? 'Change photo' : 'Add photo'}</Text>
-              </Pressable>
             </FormSection>
 
             {error ? (
@@ -820,34 +835,51 @@ const styles = StyleSheet.create({
   },
   photoButton: {
     alignItems: 'center',
+    aspectRatio: 16 / 9,
     borderColor: colors.borderStrong,
     borderRadius: radii.button,
     borderStyle: 'dashed',
     borderWidth: 1,
-    flexDirection: 'row',
-    gap: spacing[10],
-    minHeight: 48,
-    padding: spacing[4],
-    paddingRight: spacing[12],
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: '100%',
+  },
+  photoButtonFilled: {
+    borderColor: colors.borderSoft,
+    borderStyle: 'solid',
+  },
+  photoEmptyContent: {
+    alignItems: 'center',
+    gap: spacing[8],
   },
   photoIcon: {
     alignItems: 'center',
     backgroundColor: colors.controlSurface,
     borderRadius: radii.compact,
-    height: 38,
+    height: 44,
     justifyContent: 'center',
-    width: 38,
-  },
-  photoPreview: {
-    borderRadius: radii.compact,
-    height: 38,
-    width: 38,
+    width: 44,
   },
   photoLabel: {
     color: colors.purple,
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '600',
     lineHeight: 17,
+  },
+  changePhotoBadge: {
+    backgroundColor: 'rgba(26,26,46,0.76)',
+    borderRadius: radii.pill,
+    bottom: spacing[10],
+    paddingHorizontal: spacing[11],
+    paddingVertical: spacing[6],
+    position: 'absolute',
+    right: spacing[10],
+  },
+  changePhotoLabel: {
+    color: colors.white,
+    fontSize: 11.5,
+    fontWeight: '700',
+    lineHeight: 15,
   },
   errorCard: {
     backgroundColor: '#FFF0F0',
