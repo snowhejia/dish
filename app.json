@@ -18,7 +18,7 @@
       "package": "app.dish.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
-        "foregroundImage": "./assets/images/app-icon-dish.png"
+        "foregroundImage": "./assets/images/app-icon-dish-adaptive.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -32,8 +32,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#EDE9FF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "image": "./assets/images/app-icon-dish-adaptive.png",
+          "imageWidth": 132
         }
       ],
       "expo-sqlite",
@@ -43,7 +43,8 @@
         {
           "locationWhenInUsePermission": "Dish. uses your location to show nearby dish versions."
         }
-      ]
+      ],
+      "./plugins/withSafeAndroidProjectName"
     ],
     "experiments": {
       "typedRoutes": true,

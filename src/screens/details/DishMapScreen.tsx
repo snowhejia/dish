@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -41,6 +41,11 @@ export function DishMapScreen({
   const [selectedId, setSelectedId] = useState(startId);
   const selected = dishVersions.find((version) => version.id === selectedId) ?? dishVersions[0];
 
+  useEffect(() => {
+    if (selectedId && dishVersions.some((version) => version.id === selectedId)) return;
+    if (fallbackId) setSelectedId(fallbackId);
+  }, [dishVersions, fallbackId, selectedId]);
+
   const selectVersion = (versionId: string) => {
     setSelectedId(versionId);
     onSelectVersion?.(versionId);
@@ -78,11 +83,14 @@ export function DishMapScreen({
       </View>
 
       <Pressable
+        accessibilityState={{ disabled: loading }}
+        disabled={loading}
         onPress={() => onOpenVersion?.(selected.id)}
         style={({ pressed }) => [
           styles.selectionCard,
           { bottom: Math.max(insets.bottom, 24) },
-          pressed && styles.pressed,
+          loading && styles.selectionCardDisabled,
+          pressed && !loading && styles.pressed,
         ]}
       >
         <View style={styles.cardPhoto}>
@@ -162,6 +170,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.large,
     backgroundColor: colors.surface,
     ...shadows.mapCard,
+  },
+  selectionCardDisabled: {
+    opacity: 0.72,
   },
   cardPhoto: {
     width: sizes.mapThumb,
