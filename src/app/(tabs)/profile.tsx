@@ -15,7 +15,6 @@ export default function ProfileRoute() {
       onOpenNotifications={() => router.push('/profile/notifications')}
       onOpenRegister={() => router.push(authHref('register'))}
       onOpenReviews={() => router.push('/profile/reviews')}
-      onOpenSaved={() => router.navigate('/saved')}
     />
   );
 }

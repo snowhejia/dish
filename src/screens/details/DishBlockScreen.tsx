@@ -94,14 +94,11 @@ export function DishBlockScreen({
         title={dish.name}
         onBack={onBack}
         translucent
-        right={<View style={styles.headerActions}>
+        right={
           <IconButton onPress={() => void toggleDishSaved()} accessibilityLabel={saved ? 'Remove saved dish' : 'Save dish'}>
             <BookmarkIcon size={18} color={colors.purpleDark} strokeWidth={1.7} filled={saved} />
           </IconButton>
-          <IconButton onPress={() => onOpenMap?.(dish.id)} accessibilityLabel="Open dish map">
-            <MapIcon size={18} color={colors.purpleDark} strokeWidth={1.7} />
-          </IconButton>
-        </View>}
+        }
       />
 
       <DetailScroll bottomInset={compareMode ? 118 : 146}>
@@ -167,11 +164,6 @@ const styles = StyleSheet.create({
   intro: {
     paddingHorizontal: sizes.pageGutter,
     paddingTop: 18,
-  },
-  headerActions: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 2,
   },
   blockEyebrow: {
     fontSize: 9,

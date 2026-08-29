@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Dishy } from '@/components/brand';
@@ -19,7 +19,7 @@ import {
   type DiscoverFilter,
 } from '@/lib/catalogFilters';
 import { useCatalog } from '@/providers/CatalogProvider';
-import { colors, fonts, radii, sizes, spacing } from '@/theme/tokens';
+import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 const QUICK_FILTERS = ['Soupy', 'Spicy', 'Under $20', '5 min walk', 'Open now'] as const satisfies readonly DiscoverFilter[];
 
@@ -81,7 +81,12 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
     >
       <View style={[styles.hero, { paddingTop: Math.max(56, insets.top + spacing[9]) }]}>
         <View style={styles.brandRow}>
-          <Text style={styles.logo}>DISH.</Text>
+          <Image
+            accessibilityLabel="Dish app logo"
+            accessible
+            source={require('../../../assets/images/app-icon-dish.png')}
+            style={styles.logo}
+          />
           <View style={styles.locationPill}>
             <LocationPinIcon color={colors.purpleLogo} size={11} strokeWidth={1.5} />
             <Text style={styles.locationText}>USYD / Camperdown</Text>
@@ -233,12 +238,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
   },
   logo: {
-    color: colors.purpleLogo,
-    fontFamily: fonts.pixelBold,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    lineHeight: 20,
+    borderRadius: 9,
+    height: 40,
+    width: 40,
   },
   locationPill: {
     alignItems: 'center',

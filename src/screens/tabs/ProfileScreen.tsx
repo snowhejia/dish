@@ -9,7 +9,6 @@ import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 export type ProfileScreenProps = {
   onOpenAddVersion: () => void;
-  onOpenSaved: () => void;
   onOpenReviews: () => void;
   onOpenContributions: () => void;
   onOpenNotifications: () => void;
@@ -26,7 +25,6 @@ export function ProfileScreen({
   onOpenReviews,
   onOpenLogin,
   onOpenRegister,
-  onOpenSaved,
 }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const { logout, status, user } = useAuth();
@@ -37,7 +35,6 @@ export function ProfileScreen({
       onPress: onOpenContributions,
       badge: user?.stats?.pendingContributions ? `${user.stats.pendingContributions} pending` : undefined,
     },
-    { label: 'Saved', onPress: onOpenSaved },
     { label: 'Notifications', onPress: onOpenNotifications },
     { label: 'Account settings', onPress: onOpenAccountSettings },
   ];

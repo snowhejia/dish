@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
-import { PlusIcon } from '@/components/icons';
+import { PlusIcon, SearchIcon, XIcon } from '@/components/icons';
 import {
   ActionButton,
   DetailHeader,
@@ -58,6 +58,14 @@ type RestaurantOption = {
   id: string;
   name: string;
   address?: string;
+  cuisines: string[];
+};
+
+type SearchChoice = {
+  id: string;
+  label: string;
+  meta?: string;
+  searchText: string;
 };
 
 export function AddVersionScreen({
@@ -69,14 +77,14 @@ export function AddVersionScreen({
   onSuccess,
 }: AddVersionScreenProps) {
   const restaurantOptions = useMemo(() => collectRestaurants(), [catalogRevision]);
-  const firstDishId = dishes.find((dish) => dish.id === initialDishId)?.id ?? dishes[0]?.id ?? '';
+  const firstDishId = dishes.find((dish) => dish.id === initialDishId)?.id ?? '';
   const firstRestaurant = restaurantOptions.find((restaurant) => restaurant.name === initialRestaurantName)
-    ?? restaurantOptions[0];
+    ?? undefined;
 
   const [dishMode, setDishMode] = useState<SourceMode>('existing');
   const [dishId, setDishId] = useState(firstDishId);
   const [newDishName, setNewDishName] = useState('');
-  const [restaurantMode, setRestaurantMode] = useState<SourceMode>(firstRestaurant ? 'existing' : 'new');
+  const [restaurantMode, setRestaurantMode] = useState<SourceMode>(restaurantOptions.length ? 'existing' : 'new');
   const [restaurantId, setRestaurantId] = useState(firstRestaurant?.id ?? '');
   const [newRestaurantName, setNewRestaurantName] = useState(firstRestaurant ? '' : initialRestaurantName ?? '');
   const [newRestaurantAddress, setNewRestaurantAddress] = useState('');
@@ -89,12 +97,12 @@ export function AddVersionScreen({
   const [error, setError] = useState<string>();
 
   useEffect(() => {
-    if (!dishes.some((dish) => dish.id === dishId)) setDishId(dishes[0]?.id ?? '');
+    if (dishId && !dishes.some((dish) => dish.id === dishId)) setDishId('');
   }, [catalogRevision, dishId]);
 
   useEffect(() => {
-    if (restaurantOptions.some((restaurant) => restaurant.id === restaurantId)) return;
-    setRestaurantId(restaurantOptions[0]?.id ?? '');
+    if (!restaurantId || restaurantOptions.some((restaurant) => restaurant.id === restaurantId)) return;
+    setRestaurantId('');
     if (!restaurantOptions.length) setRestaurantMode('new');
   }, [restaurantId, restaurantOptions]);
 
@@ -179,10 +187,19 @@ export function AddVersionScreen({
             <FormSection label="DISH">
               <SegmentedControl onChange={setDishMode} options={SOURCE_OPTIONS} value={dishMode} />
               {dishMode === 'existing' ? (
-                <ChoiceList
+                <SearchChoicePicker
                   emptyMessage="No dishes are available yet. Choose Add new."
-                  items={dishes.map((dish) => ({ id: dish.id, label: dish.name, meta: dish.cuisine }))}
+                  items={dishes.map((dish) => ({
+                    id: dish.id,
+                    label: dish.name,
+                    meta: [dish.cuisine, dish.dishType].filter(Boolean).join(' · '),
+                    searchText: [dish.name, dish.cuisine, dish.dishType].filter(Boolean).join(' '),
+                  }))}
+                  noMatchesMessage="No matching dishes. Try another name or choose Add new."
                   onChange={setDishId}
+                  placeholder="Search dishes by name, cuisine or type"
+                  searchLabel="Search existing dishes"
+                  selectedLabel="Selected dish"
                   value={dishId}
                 />
               ) : (
@@ -198,14 +215,21 @@ export function AddVersionScreen({
             <FormSection label="RESTAURANT">
               <SegmentedControl onChange={setRestaurantMode} options={SOURCE_OPTIONS} value={restaurantMode} />
               {restaurantMode === 'existing' ? (
-                <ChoiceList
+                <SearchChoicePicker
                   emptyMessage="The live restaurant list is unavailable. Choose Add new."
                   items={restaurantOptions.map((restaurant) => ({
                     id: restaurant.id,
                     label: restaurant.name,
-                    meta: restaurant.address,
+                    meta: restaurant.address ?? restaurant.cuisines.join(' · '),
+                    searchText: [restaurant.name, restaurant.address, ...restaurant.cuisines]
+                      .filter(Boolean)
+                      .join(' '),
                   }))}
+                  noMatchesMessage="No matching restaurants. Try another name or address, or choose Add new."
                   onChange={setRestaurantId}
+                  placeholder="Search restaurants by name or address"
+                  searchLabel="Search existing restaurants"
+                  selectedLabel="Selected restaurant"
                   value={restaurantId}
                 />
               ) : (
@@ -298,41 +322,155 @@ function FormSection({ children, label }: { children: React.ReactNode; label: st
   );
 }
 
-function ChoiceList({
+function SearchChoicePicker({
   emptyMessage,
   items,
+  noMatchesMessage,
   onChange,
+  placeholder,
+  searchLabel,
+  selectedLabel,
   value,
 }: {
   emptyMessage: string;
-  items: Array<{ id: string; label: string; meta?: string }>;
+  items: SearchChoice[];
+  noMatchesMessage: string;
   onChange: (id: string) => void;
+  placeholder: string;
+  searchLabel: string;
+  selectedLabel: string;
   value: string;
 }) {
+  const [query, setQuery] = useState('');
+  const [choosing, setChoosing] = useState(!value);
+
+  useEffect(() => {
+    if (!value) setChoosing(true);
+  }, [value]);
+
   if (!items.length) return <Text style={styles.emptyChoice}>{emptyMessage}</Text>;
+
+  const selected = items.find((item) => item.id === value);
+  if (selected && !choosing) {
+    return (
+      <View style={styles.selectedChoice}>
+        <View style={styles.selectedChoiceCopy}>
+          <Text style={styles.selectedChoiceCaption}>{selectedLabel}</Text>
+          <Text style={styles.selectedChoiceLabel}>{selected.label}</Text>
+          {selected.meta ? <Text numberOfLines={2} style={styles.selectedChoiceMeta}>{selected.meta}</Text> : null}
+        </View>
+        <Pressable
+          accessibilityLabel={`Change ${selectedLabel.toLowerCase()}`}
+          accessibilityRole="button"
+          onPress={() => {
+            setQuery('');
+            setChoosing(true);
+          }}
+          style={({ pressed }) => [styles.changeChoiceButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.changeChoiceLabel}>Change</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  const queryTerms = normalizeSearch(query).split(' ').filter(Boolean);
+  const matches = queryTerms.length
+    ? items
+      .filter((item) => {
+        const haystack = normalizeSearch(`${item.label} ${item.meta ?? ''} ${item.searchText}`);
+        return queryTerms.every((term) => haystack.includes(term));
+      })
+      .slice(0, 6)
+    : [];
+
   return (
-    <View style={styles.choiceList}>
-      {items.map((item) => {
-        const selected = item.id === value;
-        return (
+    <View style={styles.searchChoicePicker}>
+      <View style={styles.searchChoiceFrame}>
+        <SearchIcon color={colors.muted} size={17} strokeWidth={1.8} />
+        <TextInput
+          accessibilityLabel={searchLabel}
+          autoCapitalize="none"
+          autoCorrect={false}
+          onChangeText={setQuery}
+          placeholder={placeholder}
+          placeholderTextColor={colors.disabled}
+          returnKeyType="search"
+          style={styles.searchChoiceInput}
+          value={query}
+        />
+        {query ? (
           <Pressable
-            accessibilityRole="radio"
-            accessibilityState={{ checked: selected }}
-            key={item.id}
-            onPress={() => onChange(item.id)}
-            style={({ pressed }) => [
-              styles.choice,
-              selected && styles.choiceSelected,
-              pressed && styles.pressed,
-            ]}
+            accessibilityLabel="Clear search"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => setQuery('')}
+            style={({ pressed }) => [styles.clearSearchButton, pressed && styles.pressed]}
           >
-            <Text style={[styles.choiceLabel, selected && styles.choiceLabelSelected]}>{item.label}</Text>
-            {item.meta ? <Text numberOfLines={1} style={[styles.choiceMeta, selected && styles.choiceMetaSelected]}>{item.meta}</Text> : null}
+            <XIcon color={colors.muted} size={15} strokeWidth={1.8} />
           </Pressable>
-        );
-      })}
+        ) : null}
+      </View>
+
+      {!queryTerms.length ? (
+        <Text style={styles.searchChoiceHint}>Start typing to find a match.</Text>
+      ) : matches.length ? (
+        <View accessibilityRole="radiogroup" style={styles.searchResults}>
+          {matches.map((item) => {
+            const isSelected = item.id === value;
+            return (
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ checked: isSelected }}
+                key={item.id}
+                onPress={() => {
+                  onChange(item.id);
+                  setQuery('');
+                  setChoosing(false);
+                }}
+                style={({ pressed }) => [
+                  styles.searchResult,
+                  isSelected && styles.searchResultSelected,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.searchResultCopy}>
+                  <Text style={[styles.searchResultLabel, isSelected && styles.searchResultLabelSelected]}>
+                    {item.label}
+                  </Text>
+                  {item.meta ? (
+                    <Text numberOfLines={2} style={[styles.searchResultMeta, isSelected && styles.searchResultMetaSelected]}>
+                      {item.meta}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={[styles.selectChoiceLabel, isSelected && styles.selectChoiceLabelSelected]}>
+                  {isSelected ? 'Selected' : 'Select'}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : (
+        <Text style={styles.emptyChoice}>{noMatchesMessage}</Text>
+      )}
+
+      {selected && choosing ? (
+        <Pressable
+          accessibilityLabel={`Keep ${selected.label}`}
+          accessibilityRole="button"
+          onPress={() => setChoosing(false)}
+          style={({ pressed }) => [styles.keepChoiceButton, pressed && styles.pressed]}
+        >
+          <Text numberOfLines={1} style={styles.keepChoiceLabel}>Keep {selected.label}</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
+}
+
+function normalizeSearch(value: string) {
+  return value.trim().toLocaleLowerCase().replace(/\s+/g, ' ');
 }
 
 function LabeledInput({
@@ -376,11 +514,18 @@ function LabeledInput({
 function collectRestaurants(): RestaurantOption[] {
   const byId = new Map<string, RestaurantOption>();
   versions.forEach((version) => {
-    if (!version.restaurantId || byId.has(version.restaurantId)) return;
+    if (!version.restaurantId) return;
+    const current = byId.get(version.restaurantId);
+    if (current) {
+      if (!current.address && version.address) current.address = version.address;
+      if (version.cuisine && !current.cuisines.includes(version.cuisine)) current.cuisines.push(version.cuisine);
+      return;
+    }
     byId.set(version.restaurantId, {
       id: version.restaurantId,
       name: version.restaurant,
       address: version.address,
+      cuisines: version.cuisine ? [version.cuisine] : [],
     });
   });
   return Array.from(byId.values()).sort((left, right) => left.name.localeCompare(right.name));
@@ -440,42 +585,153 @@ const styles = StyleSheet.create({
     gap: spacing[12],
     paddingTop: spacing[10],
   },
-  choiceList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  searchChoicePicker: {
     gap: spacing[8],
   },
-  choice: {
-    borderColor: colors.border,
-    borderRadius: radii.control,
+  searchChoiceFrame: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.button,
     borderWidth: 1,
-    maxWidth: '100%',
-    minWidth: 104,
-    paddingHorizontal: spacing[11],
-    paddingVertical: spacing[9],
+    flexDirection: 'row',
+    gap: spacing[9],
+    minHeight: 50,
+    paddingHorizontal: spacing[14],
   },
-  choiceSelected: {
-    backgroundColor: colors.purple,
-    borderColor: colors.purple,
+  searchChoiceInput: {
+    color: colors.ink,
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 19,
+    minWidth: 0,
+    padding: 0,
   },
-  choiceLabel: {
-    color: colors.body,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 16,
+  clearSearchButton: {
+    alignItems: 'center',
+    backgroundColor: colors.controlSurface,
+    borderRadius: radii.pill,
+    height: 24,
+    justifyContent: 'center',
+    width: 24,
   },
-  choiceLabelSelected: {
-    color: colors.white,
-  },
-  choiceMeta: {
+  searchChoiceHint: {
     color: colors.muted,
-    fontSize: 10.5,
-    lineHeight: 14,
-    marginTop: spacing[3],
-    maxWidth: 230,
+    fontSize: 12.5,
+    lineHeight: 18,
+    paddingHorizontal: spacing[3],
   },
-  choiceMetaSelected: {
-    color: 'rgba(255,255,255,0.76)',
+  searchResults: {
+    borderColor: colors.borderSoft,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  searchResult: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderBottomColor: colors.divider,
+    borderBottomWidth: 1,
+    flexDirection: 'row',
+    gap: spacing[10],
+    minHeight: 58,
+    paddingHorizontal: spacing[13],
+    paddingVertical: spacing[10],
+  },
+  searchResultSelected: {
+    backgroundColor: colors.lavender,
+  },
+  searchResultCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  searchResultLabel: {
+    color: colors.body,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  searchResultLabelSelected: {
+    color: colors.purpleDark,
+  },
+  searchResultMeta: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: spacing[3],
+  },
+  searchResultMetaSelected: {
+    color: colors.bodySoft,
+  },
+  selectChoiceLabel: {
+    color: colors.purple,
+    fontSize: 11.5,
+    fontWeight: '600',
+    lineHeight: 15,
+  },
+  selectChoiceLabelSelected: {
+    color: colors.purpleDark,
+  },
+  selectedChoice: {
+    alignItems: 'center',
+    backgroundColor: colors.lavender,
+    borderColor: colors.purple,
+    borderRadius: radii.button,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing[10],
+    minHeight: 68,
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[11],
+  },
+  selectedChoiceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  selectedChoiceCaption: {
+    color: colors.purpleDark,
+    fontSize: 10.5,
+    fontWeight: '600',
+    lineHeight: 14,
+    marginBottom: spacing[2],
+  },
+  selectedChoiceLabel: {
+    color: colors.titleInk,
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  selectedChoiceMeta: {
+    color: colors.bodySoft,
+    fontSize: 11,
+    lineHeight: 15,
+    marginTop: spacing[2],
+  },
+  changeChoiceButton: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
+  },
+  changeChoiceLabel: {
+    color: colors.purple,
+    fontSize: 11.5,
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  keepChoiceButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.chipSurface,
+    borderRadius: radii.pill,
+    maxWidth: '100%',
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[7],
+  },
+  keepChoiceLabel: {
+    color: colors.purpleDark,
+    fontSize: 11.5,
+    fontWeight: '600',
+    lineHeight: 15,
   },
   emptyChoice: {
     backgroundColor: colors.softSurface,
