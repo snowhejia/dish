@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardTop: {
-    alignItems: 'flex-start',
+    alignItems: 'center',
     flexDirection: 'row',
     gap: spacing[10],
   },
@@ -306,10 +306,12 @@ const styles = StyleSheet.create({
     marginTop: spacing[9],
   },
   badge: {
+    alignItems: 'center',
     backgroundColor: colors.controlSurface,
     borderRadius: radii.pill,
+    height: 22,
+    justifyContent: 'center',
     paddingHorizontal: spacing[9],
-    paddingVertical: spacing[4],
   },
   badgePositive: {
     backgroundColor: colors.successSurface,
@@ -321,7 +323,9 @@ const styles = StyleSheet.create({
     color: colors.bodySoft,
     fontSize: 10.5,
     fontWeight: '700',
+    includeFontPadding: false,
     lineHeight: 13,
+    textAlignVertical: 'center',
     textTransform: 'uppercase',
   },
   badgeTextPositive: {
