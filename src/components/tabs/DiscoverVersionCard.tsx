@@ -3,7 +3,7 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Dish, DishVersion } from '@/data/mockData';
-import { distance, money } from '@/data/mockData';
+import { money, versionDistance } from '@/data/mockData';
 import { foodImages } from '@/data/images';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
@@ -38,7 +38,7 @@ export function DiscoverVersionCard({
           {version.restaurant}
         </Text>
         <Text numberOfLines={1} style={styles.meta}>
-          {version.cuisine} · {distance(version.metres)} · {money(version.price)}
+          {version.cuisine} · {versionDistance(version)} · {money(version.price)}
         </Text>
       </View>
     </Pressable>

@@ -6,8 +6,8 @@ import { DetailHeader, DetailScreen, FoodImage, Tag } from '@/components/details
 import { foodImages } from '@/data/images';
 import {
   dishById,
-  distance,
   money,
+  versionDistance,
   versionsOfDish,
   type DishVersion,
 } from '@/data/mockData';
@@ -71,7 +71,7 @@ export function CompareScreen({
           />
           <MetricRow label="Votes" columns={columns} renderValue={(column) => `${column.votes}`} />
           <MetricRow label="Price" columns={columns} renderValue={(column) => money(column.price)} />
-          <MetricRow label="Distance" columns={columns} renderValue={(column) => distance(column.metres)} />
+          <MetricRow label="Distance" columns={columns} renderValue={versionDistance} />
         </View>
 
         <View style={styles.peopleRow}>

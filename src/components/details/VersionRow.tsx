@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronRightIcon } from '@/components/icons';
 import { foodImages } from '@/data/images';
-import { distance, dishForVersion, money, type DishVersion } from '@/data/mockData';
+import { dishForVersion, money, versionDistance, type DishVersion } from '@/data/mockData';
 import { colors, radii, sizes } from '@/theme/tokens';
 
 import { FoodImage, ProgressBar } from './DetailPrimitives';
@@ -46,7 +46,9 @@ export function VersionRow({
       <View style={styles.copy}>
         <Text numberOfLines={1} style={styles.restaurant}>{compact ? dish.name : version.restaurant}</Text>
         <Text numberOfLines={1} style={styles.meta}>
-          {compact ? `${money(version.price)} · ${version.votes} votes` : `${distance(version.metres)} · ${version.votes} votes`}
+          {compact
+            ? `${money(version.price)} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`
+            : `${versionDistance(version)} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`}
         </Text>
         {compact ? null : <Text style={styles.price}>{money(version.price)}</Text>}
         <View style={styles.scoreRow}>

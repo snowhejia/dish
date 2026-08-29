@@ -6,7 +6,7 @@ import { Dishy } from '@/components/brand';
 import { BackIcon, ChevronRightIcon } from '@/components/icons';
 import { DetailScreen, FoodImage, IconButton } from '@/components/details';
 import { foodImages } from '@/data/images';
-import { dishById, distance, money, versionsOfDish } from '@/data/mockData';
+import { dishById, money, versionAvailability, versionDistance, versionsOfDish } from '@/data/mockData';
 import { colors, radii, shadows, sizes } from '@/theme/tokens';
 
 export type DishMapScreenProps = {
@@ -108,7 +108,7 @@ export function DishMapScreen({
         </View>
         <View style={styles.cardCopy}>
           <Text numberOfLines={1} style={styles.restaurant}>{selected.restaurant}</Text>
-          <Text style={styles.cardMeta}>{distance(selected.metres)} · Open now</Text>
+          <Text style={styles.cardMeta}>{versionDistance(selected)} · {versionAvailability(selected)}</Text>
           <View style={styles.cardScoreRow}>
             <Text style={styles.cardPrice}>{money(selected.price)}</Text>
             <Text style={styles.cardScore}>{selected.wouldEatAgain}% would eat again</Text>

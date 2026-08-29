@@ -1,6 +1,26 @@
 import type { ImageSourcePropType } from 'react-native';
 
 export const foodImages: Record<string, ImageSourcePropType> = {
+  'real-single-single-burger-v1': require('../../assets/images/food/real/625c569d050562de2b55efe28f493d41.jpg'),
+  'real-classic-burger-v1': require('../../assets/images/food/real/0fcba55f7981f9cf33abaa776d138154.jpg'),
+  'real-bl-chicken-v1': require('../../assets/images/food/real/788ea2200cd52b4f69aad526e2bd8a6b.jpg'),
+  'real-grass-fed-beef-burger-v1': require('../../assets/images/food/real/c5140553ce453806f12ceac38f4365c2.jpg'),
+  'real-kani-miso-ramen-v1': require('../../assets/images/food/real/b605ef8c1c6c186eca66f4b2485180cc.jpg'),
+  'real-wagyu-mazesoba-v1': require('../../assets/images/food/real/b5ef80667a2fd26949a00c2da8f4e67e.jpg'),
+  'real-lobster-bisque-ramen-v1': require('../../assets/images/food/real/a08a854d79f9b6926252b3940333b72b.jpg'),
+  'real-tan-tan-ramen-v1': require('../../assets/images/food/real/66df14397c5e35cee336bc617a3ef546.jpg'),
+  'real-signature-toripaitan-v1': require('../../assets/images/food/real/44bcc45f4f80eb02ae65813415cc06bd.jpg'),
+  'real-spicy-lamb-miso-v1': require('../../assets/images/food/real/3f8275d31f25a28f0c13384fa1b8f83b.jpg'),
+  'real-crafted-10-spices-tantanmen-v1': require('../../assets/images/food/real/36bb75ca22ecb3e53d031c8eaeadaa77.jpg'),
+  'real-american-cheeseburger-v1': require('../../assets/images/food/real/7fff9553e6b23909208af640a3fae08e.jpg'),
+  'real-gidley-burger-v1': require('../../assets/images/food/real/fd55686ab36d3308dcbdf56d1a264246.jpg'),
+  'real-parrillero-v1': require('../../assets/images/food/real/6ba92655e3b6121874864184732c740c.jpg'),
+  'real-xian-broad-noodles-chilli-v1': require('../../assets/images/food/real/7488841606a562b8b16d0069b3b23550.jpg'),
+  'real-mini-meat-box-v1': require('../../assets/images/food/real/5fef39a8c3288236c1c5ff5a475db33a.jpg'),
+  'real-chicken-giblet-noodles-v1': require('../../assets/images/food/real/7838aca7af17a6dc560cc61e4133ca17.jpg'),
+  'real-tender-beef-pickled-chilies-v1': require('../../assets/images/food/real/c8a3e3baf957c8ea7707ba9a4d1938b3.jpg'),
+  'real-spicy-sour-shredded-potato-v1': require('../../assets/images/food/real/ebf78c886d5da01ec7011380742896c3.jpg'),
+  'real-crispy-sweet-sour-pork-v1': require('../../assets/images/food/real/c1890ff69cdca96ecc98fffbf1ea76dd.jpg'),
   'beef-xian': require('../../assets/images/food/beef-xian.jpg'),
   'beef-inn': require('../../assets/images/food/beef-inn.jpg'),
   'beef-lanzhou': require('../../assets/images/food/beef-lanzhou.jpg'),
@@ -17,4 +37,3 @@ export const foodImages: Record<string, ImageSourcePropType> = {
   'porkroll-marrick': require('../../assets/images/food/porkroll-marrick.jpg'),
   'porkroll-bakehouse': require('../../assets/images/food/porkroll-bakehouse.jpg'),
 };
-

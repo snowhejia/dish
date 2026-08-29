@@ -11,7 +11,7 @@ import {
   PixelEyebrow,
   SearchField,
 } from '@/components/tabs';
-import { dishes, versionsOfDish } from '@/data/mockData';
+import { dishes, versionsOfDish, type Dish } from '@/data/mockData';
 import { colors, fonts, radii, sizes, spacing } from '@/theme/tokens';
 
 const QUICK_FILTERS = ['Soupy', 'Spicy', 'Under $20', '5 min walk', 'Open now'] as const;
@@ -29,7 +29,7 @@ export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }:
 
   const feed = useMemo(
     () =>
-      dishes.map((dish) => {
+      interleaveByCuisine(dishes).map((dish) => {
         const dishVersions = versionsOfDish(dish.id);
         return { dish, version: dishVersions[0], moreCount: Math.max(0, dishVersions.length - 1) };
       }),
@@ -110,6 +110,27 @@ export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }:
       <BottomTabSpacer />
     </ScrollView>
   );
+}
+
+function interleaveByCuisine(items: Dish[]) {
+  const groups = new Map<string, Dish[]>();
+  items.forEach((dish) => {
+    const group = groups.get(dish.cuisine) ?? [];
+    group.push(dish);
+    groups.set(dish.cuisine, group);
+  });
+
+  const queues = Array.from(groups.values());
+  const result: Dish[] = [];
+  let row = 0;
+  while (result.length < items.length) {
+    queues.forEach((queue) => {
+      const dish = queue[row];
+      if (dish) result.push(dish);
+    });
+    row += 1;
+  }
+  return result;
 }
 
 const styles = StyleSheet.create({

@@ -13,7 +13,7 @@ import {
   SegmentedControl,
 } from '@/components/tabs';
 import { foodImages } from '@/data/images';
-import { dishes, distance, money, restaurants, versions, versionsOfDish } from '@/data/mockData';
+import { dishes, money, restaurants, versionDistance, versions, versionsOfDish } from '@/data/mockData';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type CatalogTab = 'dishes' | 'restaurants';
@@ -55,7 +55,7 @@ export function CatalogScreen({ onOpenDish, onOpenVersion }: CatalogScreenProps)
         key: restaurant,
         image: foodImages[first.id],
         title: restaurant,
-        subtitle: `${first.cuisine} · ${distance(first.metres)} · ${restaurantVersions.length} ${restaurantVersions.length === 1 ? 'dish rated' : 'dishes rated'}`,
+        subtitle: `${first.cuisine} · ${versionDistance(first)} · ${restaurantVersions.length} ${restaurantVersions.length === 1 ? 'dish rated' : 'dishes rated'}`,
         onPress: () => onOpenVersion(first.id),
       };
     });

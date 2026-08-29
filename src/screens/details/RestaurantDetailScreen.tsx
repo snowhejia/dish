@@ -13,7 +13,7 @@ import {
   VersionRow,
 } from '@/components/details';
 import { foodImages } from '@/data/images';
-import { distance, versionById, versions } from '@/data/mockData';
+import { versionAvailability, versionById, versionDistance, versions } from '@/data/mockData';
 import { colors, sizes, type } from '@/theme/tokens';
 
 export type RestaurantDetailScreenProps = {
@@ -63,13 +63,17 @@ export function RestaurantDetailScreen({
         <View style={styles.summary}>
           <Text style={styles.title}>{resolvedName}</Text>
           <View style={styles.hoursRow}>
-            <View style={styles.openChip}><Text style={styles.openText}>Open now</Text></View>
-            <Text style={styles.until}>until 9:30 pm</Text>
+            <View style={styles.openChip}><Text style={styles.openText}>{versionAvailability(heroVersion)}</Text></View>
+            <Text style={styles.until}>{heroVersion.source === 'real' ? 'Current venue schedule' : 'until 9:30 pm'}</Text>
           </View>
           <Text style={styles.address}>
-            142 King Street, Newtown NSW 2042{`\n`}
-            <Text style={styles.meta}>{heroVersion.cuisine} · {distance(heroVersion.metres)} from campus</Text>
+            {heroVersion.address ?? '142 King Street, Newtown NSW 2042'}{`\n`}
+            <Text style={styles.meta}>
+              {heroVersion.cuisine} · {versionDistance(heroVersion)}{heroVersion.source === 'real' ? '' : ' from campus'}
+            </Text>
           </Text>
+          {heroVersion.hours ? <Text style={styles.contact}>{heroVersion.hours}</Text> : null}
+          {heroVersion.phone ? <Text style={styles.contact}>{heroVersion.phone}</Text> : null}
           <ActionButton
             icon={<DirectionsIcon size={17} color={colors.white} strokeWidth={1.8} />}
             style={styles.directions}
@@ -155,6 +159,12 @@ const styles = StyleSheet.create({
   },
   meta: {
     color: colors.muted,
+  },
+  contact: {
+    color: colors.muted,
+    fontSize: 12.5,
+    lineHeight: 18,
+    marginTop: 7,
   },
   directions: {
     marginTop: 15,

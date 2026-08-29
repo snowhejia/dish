@@ -17,10 +17,11 @@ import { foodImages } from '@/data/images';
 import {
   defaultReviews,
   dishForVersion,
-  distance,
   money,
   reviewsByVersion,
+  versionAvailability,
   versionById,
+  versionDistance,
   versions,
   versionsOfDish,
   type DishVersion,
@@ -50,6 +51,7 @@ export function VersionDetailScreen({
   const version = versionById(versionId);
   const dish = dishForVersion(version);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const galleryCount = version.galleryCount ?? 4;
   const reviews = reviewsByVersion[version.id] ?? defaultReviews;
   const otherVersions = useMemo(
     () => versionsOfDish(version.dishId).filter((item) => item.id !== version.id),
@@ -68,7 +70,7 @@ export function VersionDetailScreen({
             source={foodImages[version.id]}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={`${dish.name} at ${version.restaurant}`}
-            contentPosition={galleryPositions[galleryIndex]}
+            contentPosition={galleryPositions[galleryIndex % galleryPositions.length]}
           />
           <HeroFade />
           <IconButton
@@ -80,10 +82,10 @@ export function VersionDetailScreen({
             <BackIcon size={15} color={colors.ink} strokeWidth={1.9} />
           </IconButton>
           <View style={styles.galleryLabel}>
-            <Text style={styles.galleryLabelText}>{galleryIndex + 1} / 4</Text>
+            <Text style={styles.galleryLabelText}>{galleryIndex + 1} / {galleryCount}</Text>
           </View>
           <View style={styles.galleryDots}>
-            {[0, 1, 2, 3].map((index) => (
+            {Array.from({ length: galleryCount }, (_, index) => index).map((index) => (
               <Pressable
                 key={index}
                 hitSlop={7}
@@ -103,7 +105,7 @@ export function VersionDetailScreen({
             <Text style={styles.restaurantText}>{version.restaurant}</Text>
             <ChevronRightIcon size={13} color={colors.purpleLogo} strokeWidth={1.9} />
           </Pressable>
-          <Text style={styles.meta}>{version.cuisine} · {distance(version.metres)} · Open now</Text>
+          <Text style={styles.meta}>{version.cuisine} · {versionDistance(version)} · {versionAvailability(version)}</Text>
 
           <View style={styles.scoreCard}>
             <View>
@@ -113,7 +115,7 @@ export function VersionDetailScreen({
             <View style={styles.scoreDivider} />
             <View style={styles.scoreCopy}>
               <Text style={styles.score}>{version.wouldEatAgain}% would eat it again</Text>
-              <Text style={styles.scoreCaption}>{version.votes} votes from diners</Text>
+              <Text style={styles.scoreCaption}>{version.votes} {version.votes === 1 ? 'vote' : 'votes'} from diners</Text>
             </View>
           </View>
         </View>
@@ -148,7 +150,7 @@ export function VersionDetailScreen({
           eyebrow="OTHER VERSIONS"
           items={otherVersions}
           onOpenVersion={onOpenVersion}
-          onSeeAll={() => onSeeAllVersions?.(dish.id)}
+          onSeeAll={otherVersions.length ? () => onSeeAllVersions?.(dish.id) : undefined}
         />
 
         <RelatedStrip

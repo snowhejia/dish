@@ -35,6 +35,7 @@ export function DishBlockScreen({
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const minimumPrice = Math.min(...versions.map((version) => version.price));
+  const compareAvailable = versions.length >= 2;
 
   const toggleCompare = () => {
     setCompareMode((current) => !current);
@@ -76,13 +77,15 @@ export function DishBlockScreen({
             {versions.length} {versions.length === 1 ? 'version' : 'versions'} near you · from {money(minimumPrice)}
           </Text>
           <View style={styles.tools}>
-            <Pressable
-              onPress={toggleCompare}
-              style={({ pressed }) => [styles.tool, compareMode && styles.toolActive, pressed && styles.pressed]}
-            >
-              <CompareIcon size={16} color={compareMode ? colors.purpleDark : colors.body} strokeWidth={1.8} />
-              <Text style={[styles.toolText, compareMode && styles.toolTextActive]}>{compareMode ? 'Cancel' : 'Compare'}</Text>
-            </Pressable>
+            {compareAvailable ? (
+              <Pressable
+                onPress={toggleCompare}
+                style={({ pressed }) => [styles.tool, compareMode && styles.toolActive, pressed && styles.pressed]}
+              >
+                <CompareIcon size={16} color={compareMode ? colors.purpleDark : colors.body} strokeWidth={1.8} />
+                <Text style={[styles.toolText, compareMode && styles.toolTextActive]}>{compareMode ? 'Cancel' : 'Compare'}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={() => onOpenMap?.(dish.id)}
               style={({ pressed }) => [styles.tool, pressed && styles.pressed]}
