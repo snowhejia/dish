@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,7 @@ export type ResourcePresentation = {
   body?: string;
   badge?: string;
   badgeTone?: 'neutral' | 'positive' | 'pending';
+  onPress?: () => void;
 };
 
 export type ProfileCollectionScreenProps = {
@@ -129,8 +131,8 @@ export function ProfileCollectionScreen({
 
 function ResourceCard({ presentation }: { presentation: ResourcePresentation }) {
   const tone = presentation.badgeTone ?? 'neutral';
-  return (
-    <View style={styles.card}>
+  const content = (
+    <>
       <View style={styles.cardTop}>
         <Text style={styles.cardTitle}>{presentation.title}</Text>
         {presentation.badge ? (
@@ -149,7 +151,21 @@ function ResourceCard({ presentation }: { presentation: ResourcePresentation }) 
       </View>
       {presentation.meta ? <Text style={styles.cardMeta}>{presentation.meta}</Text> : null}
       {presentation.body ? <Text style={styles.cardBody}>{presentation.body}</Text> : null}
-    </View>
+    </>
+  );
+
+  if (!presentation.onPress) return <View style={styles.card}>{content}</View>;
+
+  return (
+    <Pressable
+      accessibilityHint="Opens the reviewed dish version"
+      accessibilityLabel={`Open ${presentation.title}`}
+      accessibilityRole="button"
+      onPress={presentation.onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      {content}
+    </Pressable>
   );
 }
 
@@ -236,6 +252,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: spacing[14],
     paddingVertical: spacing[13],
+  },
+  cardPressed: {
+    backgroundColor: colors.controlSurface,
+    opacity: 0.82,
   },
   cardTop: {
     alignItems: 'flex-start',

@@ -8,6 +8,7 @@ export default function MyReviewsRoute() {
   return (
     <MyReviewsScreen
       onBack={() => router.back()}
+      onOpenVersion={(id) => router.push({ pathname: '/version/[id]', params: { id } })}
       onSignIn={() => router.push(authHref('login', '/profile/reviews'))}
     />
   );
