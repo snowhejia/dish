@@ -4,6 +4,7 @@ export type Dish = {
   id: string;
   name: string;
   cuisine: string;
+  dishType?: string;
   description?: string;
 };
 
@@ -13,6 +14,7 @@ export type DishVersion = {
   menuName?: string;
   restaurant: string;
   cuisine: string;
+  dishType?: string;
   metres: number;
   distanceLabel?: string;
   price: number;
@@ -83,7 +85,8 @@ export const realDishes: Dish[] = Array.from(new Map(
     {
       id: record.canonicalDishId,
       name: record.canonicalDishName,
-      cuisine: record.category,
+      cuisine: record.cuisine,
+      dishType: record.dishType,
     },
   ]),
 ).values());
@@ -93,7 +96,8 @@ export const realVersions: DishVersion[] = realFoodRecords.map((record) => ({
   dishId: record.canonicalDishId,
   menuName: record.name,
   restaurant: record.restaurant,
-  cuisine: record.category,
+  cuisine: record.cuisine,
+  dishType: record.dishType,
   metres: 0,
   distanceLabel: record.area,
   price: record.price,

@@ -16,11 +16,13 @@ export function searchableDishText(dish: Dish, dishVersions: DishVersion[]) {
   return normalizeCatalogText([
     dish.name,
     dish.cuisine,
+    dish.dishType,
     dish.description,
     ...dishVersions.flatMap((version) => [
       version.menuName,
       version.restaurant,
       version.cuisine,
+      version.dishType,
       version.address,
       ...version.tags,
     ]),
@@ -33,6 +35,7 @@ export function searchableRestaurantText(name: string, restaurantVersions: DishV
     ...restaurantVersions.flatMap((version) => [
       version.menuName,
       version.cuisine,
+      version.dishType,
       version.address,
       version.distanceLabel,
       ...version.tags,
@@ -44,8 +47,10 @@ export function versionMatchesKind(dish: Dish, version: DishVersion, kind: DishK
   const text = normalizeCatalogText([
     dish.name,
     dish.cuisine,
+    dish.dishType,
     version.menuName,
     version.cuisine,
+    version.dishType,
     ...version.tags,
   ].filter(Boolean).join(' '));
 

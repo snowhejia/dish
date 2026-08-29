@@ -19,7 +19,7 @@ import { createAdminRouter } from './admin';
 import { createApiRouter } from './api';
 import { closeDb, ensureSchema, query } from './db';
 import { seedDatabase } from './seed';
-import { uploadBundledSeedMedia } from './seedMedia';
+import { repairBundledRealData, uploadBundledSeedMedia } from './seedMedia';
 import { uploadImage } from './storage';
 
 export function createApp() {
@@ -94,6 +94,7 @@ async function start() {
     const summary = await seedDatabase({ includeMedia: process.env.SEED_UPLOAD_MEDIA === 'true' });
     console.log('[seed] ready', summary);
   }
+  console.log('[real-data-repair] ready', await repairBundledRealData());
   await bootstrapAdmin();
 
   const port = positiveInteger(process.env.PORT, 3000);

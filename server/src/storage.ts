@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 const allowedMimeTypes = new Map([
   ['image/jpeg', 'jpg'],
@@ -89,6 +89,20 @@ export async function putImageObject(
     CacheControl: 'public, max-age=31536000, immutable',
     Metadata: originalName ? { originalname: encodeURIComponent(originalName).slice(0, 900) } : undefined,
   }));
+}
+
+export async function imageObjectExists(key: string): Promise<boolean> {
+  if (!key || key.includes('..') || key.startsWith('/')) throw new Error('Invalid object key');
+  try {
+    await r2Client().send(new HeadObjectCommand({ Bucket: required('R2_BUCKET'), Key: key }));
+    return true;
+  } catch (error) {
+    const status = typeof error === 'object' && error !== null
+      ? (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode
+      : undefined;
+    if (status === 404) return false;
+    throw error;
+  }
 }
 
 export async function deleteImage(key: string) {

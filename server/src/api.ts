@@ -448,7 +448,7 @@ type UserRow = {
   created_at: Date;
 };
 
-type DishDto = { id: string; name: string; cuisine: string; description?: string };
+type DishDto = { id: string; name: string; cuisine: string; dishType?: string; description?: string };
 type VersionDto = {
   id: string;
   dishId: string;
@@ -456,6 +456,7 @@ type VersionDto = {
   menuName?: string;
   restaurant: string;
   cuisine: string;
+  dishType?: string;
   metres: number;
   distanceLabel?: string;
   price: number;
@@ -490,14 +491,14 @@ type CatalogDto = { dishes: DishDto[]; versions: VersionDto[]; reviewsByVersion:
 async function catalogSnapshot(): Promise<CatalogDto> {
   const [dishResult, versionResult, reviewResult] = await Promise.all([
     query<{
-      id: string; name: string; cuisine: string; description: string | null;
+      id: string; name: string; cuisine: string; dish_type: string | null; description: string | null;
     }>(
-      `SELECT COALESCE(legacy_key, id::text) AS id, canonical_name AS name, cuisine, description
+      `SELECT COALESCE(legacy_key, id::text) AS id, canonical_name AS name, cuisine, dish_type, description
        FROM dishes WHERE status = 'published' ORDER BY canonical_name`,
     ),
     query<{
       id: string; dish_id: string; restaurant_id: string; menu_name: string | null; restaurant: string;
-      cuisine: string; metres: string | null; distance_label: string | null; price: string | null;
+      cuisine: string; dish_type: string | null; metres: string | null; distance_label: string | null; price: string | null;
       would_eat_again: number | null; votes: number; tags: string[]; address: string | null;
       phone: string | null; hours: string | null; latitude: number | null; longitude: number | null;
       gallery_count: number; object_keys: string[]; source: string;
@@ -506,7 +507,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
          COALESCE(v.legacy_key, v.id::text) AS id,
          COALESCE(d.legacy_key, d.id::text) AS dish_id,
          COALESCE(r.legacy_key, r.id::text) AS restaurant_id,
-         v.menu_name, r.name AS restaurant, d.cuisine,
+         v.menu_name, r.name AS restaurant, d.cuisine, d.dish_type,
          CASE WHEN r.latitude IS NULL THEN NULL
               ELSE round(distance_metres(-33.8886, 151.1873, r.latitude, r.longitude))::text END AS metres,
          r.suburb AS distance_label,
@@ -555,6 +556,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
     id: row.id,
     name: row.name,
     cuisine: row.cuisine,
+    ...(row.dish_type ? { dishType: row.dish_type } : {}),
     ...(row.description ? { description: row.description } : {}),
   }));
   const versions = versionResult.rows.map((row): VersionDto => {
@@ -566,6 +568,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       ...(row.menu_name ? { menuName: row.menu_name } : {}),
       restaurant: row.restaurant,
       cuisine: row.cuisine,
+      ...(row.dish_type ? { dishType: row.dish_type } : {}),
       metres: Number(row.metres ?? 0),
       ...(row.distance_label ? { distanceLabel: row.distance_label } : {}),
       price: Number(row.price ?? 0),

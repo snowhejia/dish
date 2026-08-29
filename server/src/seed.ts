@@ -17,6 +17,8 @@ const realFoodRecordSchema = z.object({
   price: z.number().finite().nonnegative(),
   author: z.string().min(1),
   category: z.string().min(1),
+  cuisine: z.string().min(1),
+  dishType: z.string().min(1),
   imageFile: z.string().min(1),
   address: z.string().min(1),
   restaurant: z.string().min(1),
@@ -27,7 +29,7 @@ const realFoodRecordSchema = z.object({
 });
 
 const realFoodRecordsSchema = z.array(realFoodRecordSchema).min(1);
-type RealFoodRecord = z.infer<typeof realFoodRecordSchema>;
+export type RealFoodRecord = z.infer<typeof realFoodRecordSchema>;
 
 export type SeedSummary = {
   dishes: number;
@@ -41,6 +43,7 @@ export type SeedSummary = {
 
 export type SeedOptions = {
   includeMedia?: boolean;
+  includeUsers?: boolean;
 };
 
 /**
@@ -56,6 +59,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
   await ensureSchema();
   const records = loadRealFoodRecords();
   const includeMedia = options.includeMedia ?? process.env.SEED_UPLOAD_MEDIA === 'true';
+  const includeUsers = options.includeUsers ?? true;
   const objectPrefix = normalizeObjectPrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
 
   return withTransaction(async (client) => {
@@ -81,6 +85,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
         requiredMapValue(restaurantIds, record.restaurant),
       );
       versionIds.set(record.id, versionId);
+      await seedDishAlias(client, requiredMapValue(dishIds, record.canonicalDishId), record);
 
       for (const tagName of record.tags) {
         let tagId = tagIds.get(tagName);
@@ -106,8 +111,23 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
         await client.query(
           `
             INSERT INTO version_media (version_id, media_id, sort_order, is_cover)
-            VALUES ($1, $2, 0, true)
+            VALUES ($1, $2, 0, false)
             ON CONFLICT DO NOTHING
+          `,
+          [versionId, mediaId],
+        );
+        await client.query(
+          `
+            UPDATE version_media seed_link
+            SET is_cover = true
+            WHERE seed_link.version_id = $1
+              AND seed_link.media_id = $2
+              AND NOT EXISTS (
+                SELECT 1 FROM version_media current_cover
+                WHERE current_cover.version_id = $1
+                  AND current_cover.is_cover
+                  AND current_cover.media_id <> $2
+              )
           `,
           [versionId, mediaId],
         );
@@ -115,25 +135,27 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
     }
 
     let usersSeeded = 0;
-    const adminUserId = await seedEnvironmentUser(client, {
-      email: process.env.ADMIN_EMAIL,
-      password: process.env.ADMIN_PASSWORD,
-      displayName: process.env.ADMIN_DISPLAY_NAME ?? 'Dish Admin',
-      role: 'admin',
-      campus: null,
-    });
-    if (adminUserId) usersSeeded += 1;
+    if (includeUsers) {
+      const adminUserId = await seedEnvironmentUser(client, {
+        email: process.env.ADMIN_EMAIL,
+        password: process.env.ADMIN_PASSWORD,
+        displayName: process.env.ADMIN_DISPLAY_NAME ?? 'Dish Admin',
+        role: 'admin',
+        campus: null,
+      });
+      if (adminUserId) usersSeeded += 1;
 
-    const demoUserId = await seedEnvironmentUser(client, {
-      email: process.env.DEMO_USER_EMAIL,
-      password: process.env.DEMO_USER_PASSWORD,
-      displayName: process.env.DEMO_USER_DISPLAY_NAME ?? 'Mei Chen',
-      role: 'user',
-      campus: process.env.DEMO_USER_CAMPUS ?? 'USYD',
-    });
-    if (demoUserId) {
-      usersSeeded += 1;
-      await seedDemoSaves(client, demoUserId, dishIds, versionIds);
+      const demoUserId = await seedEnvironmentUser(client, {
+        email: process.env.DEMO_USER_EMAIL,
+        password: process.env.DEMO_USER_PASSWORD,
+        displayName: process.env.DEMO_USER_DISPLAY_NAME ?? 'Mei Chen',
+        role: 'user',
+        campus: process.env.DEMO_USER_CAMPUS ?? 'USYD',
+      });
+      if (demoUserId) {
+        usersSeeded += 1;
+        await seedDemoSaves(client, demoUserId, dishIds, versionIds);
+      }
     }
 
     return {
@@ -155,18 +177,52 @@ async function seedDish(client: PoolClient, record: RealFoodRecord): Promise<str
         legacy_key, slug, canonical_name, cuisine, dish_type,
         status, source, published_at
       )
-      VALUES ($1, $2, $3, $4, $4, 'published', 'real_import', now())
-      ON CONFLICT (legacy_key) DO UPDATE SET legacy_key = EXCLUDED.legacy_key
+      VALUES ($1, $2, $3, $4, $5, 'published', 'real_import', now())
+      ON CONFLICT (legacy_key) DO UPDATE SET
+        legacy_key = EXCLUDED.legacy_key,
+        cuisine = CASE
+          WHEN dishes.source = 'real_import'
+            AND dishes.cuisine = $6
+            AND dishes.dish_type = $6
+          THEN EXCLUDED.cuisine
+          ELSE dishes.cuisine
+        END,
+        dish_type = CASE
+          WHEN dishes.source = 'real_import'
+            AND dishes.cuisine = $6
+            AND dishes.dish_type = $6
+          THEN EXCLUDED.dish_type
+          ELSE dishes.dish_type
+        END
       RETURNING id
     `,
     [
       record.canonicalDishId,
       slugify(record.canonicalDishId.replace(/^real-/, '')),
       record.canonicalDishName,
+      record.cuisine,
+      record.dishType,
       record.category,
     ],
   );
   return requiredRowId(result.rows[0], 'dish', record.canonicalDishId);
+}
+
+async function seedDishAlias(
+  client: PoolClient,
+  dishId: string,
+  record: RealFoodRecord,
+): Promise<void> {
+  const alias = record.name.trim();
+  if (!alias || alias.localeCompare(record.canonicalDishName, undefined, { sensitivity: 'accent' }) === 0) return;
+  await client.query(
+    `
+      INSERT INTO dish_aliases (dish_id, alias)
+      VALUES ($1, $2)
+      ON CONFLICT (dish_id, alias) DO NOTHING
+    `,
+    [dishId, alias],
+  );
 }
 
 async function seedRestaurant(client: PoolClient, record: RealFoodRecord): Promise<string> {
@@ -261,7 +317,11 @@ async function seedMedia(
         status, mime_type, original_filename, alt_text, source
       )
       VALUES ($1, $2, NULL, 'image', 'version', 'approved', 'image/jpeg', $3, $4, 'real_import')
-      ON CONFLICT (legacy_key) DO UPDATE SET legacy_key = EXCLUDED.legacy_key
+      ON CONFLICT (legacy_key) DO UPDATE SET
+        object_key = CASE WHEN media.source = 'real_import' THEN EXCLUDED.object_key ELSE media.object_key END,
+        mime_type = CASE WHEN media.source = 'real_import' THEN EXCLUDED.mime_type ELSE media.mime_type END,
+        original_filename = CASE WHEN media.source = 'real_import' THEN EXCLUDED.original_filename ELSE media.original_filename END,
+        alt_text = CASE WHEN media.source = 'real_import' THEN EXCLUDED.alt_text ELSE media.alt_text END
       RETURNING id
     `,
     [
@@ -328,7 +388,7 @@ async function seedDemoSaves(
   }
 }
 
-function loadRealFoodRecords(): RealFoodRecord[] {
+export function loadRealFoodRecords(): RealFoodRecord[] {
   const sourcePath = findRealDataPath();
   const source = readFileSync(sourcePath, 'utf8');
   const declaration = 'export const realFoodRecords = ';
@@ -342,7 +402,21 @@ function loadRealFoodRecords(): RealFoodRecord[] {
   const literalStart = start + declaration.length;
   const literal = source.slice(literalStart, end + 1);
   const parsed = vm.runInNewContext(`(${literal})`, Object.create(null), { timeout: 1_000 });
-  return realFoodRecordsSchema.parse(parsed);
+  const records = realFoodRecordsSchema.parse(parsed);
+  assertCanonicalDishMetadata(records);
+  return records;
+}
+
+function assertCanonicalDishMetadata(records: RealFoodRecord[]): void {
+  const metadata = new Map<string, string>();
+  for (const record of records) {
+    const signature = [record.canonicalDishName, record.cuisine, record.dishType].join('\u0000');
+    const existing = metadata.get(record.canonicalDishId);
+    if (existing && existing !== signature) {
+      throw new Error(`Conflicting canonical dish metadata for ${record.canonicalDishId}`);
+    }
+    metadata.set(record.canonicalDishId, signature);
+  }
 }
 
 function findRealDataPath(): string {
