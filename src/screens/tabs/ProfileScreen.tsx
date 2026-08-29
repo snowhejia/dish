@@ -29,7 +29,6 @@ export function ProfileScreen({
   const insets = useSafeAreaInsets();
   const { logout, status, user } = useAuth();
   const rows = [
-    { label: 'My reviews', onPress: onOpenReviews },
     {
       label: 'My contributions',
       onPress: onOpenContributions,
@@ -79,6 +78,12 @@ export function ProfileScreen({
     );
   }
 
+  const stats = [
+    { label: 'Reviews', value: user.stats?.reviews ?? 0, onPress: onOpenReviews },
+    { label: 'Photos', value: user.stats?.photos ?? 0, onPress: undefined },
+    { label: 'Versions added', value: user.stats?.versionsAdded ?? 0, onPress: undefined },
+  ];
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
@@ -97,16 +102,28 @@ export function ProfileScreen({
       </View>
 
       <View style={styles.stats}>
-        {[
-          { label: 'Reviews', value: user.stats?.reviews ?? 0 },
-          { label: 'Photos', value: user.stats?.photos ?? 0 },
-          { label: 'Versions added', value: user.stats?.versionsAdded ?? 0 },
-        ].map((stat) => (
-          <View key={stat.label} style={styles.statCard}>
-            <Text style={styles.statValue}>{stat.value}</Text>
-            <Text style={styles.statLabel}>{stat.label}</Text>
-          </View>
-        ))}
+        {stats.map((stat) => {
+          const content = (
+            <>
+              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </>
+          );
+          return stat.onPress ? (
+            <Pressable
+              accessibilityHint="Opens your review history"
+              accessibilityLabel={`${stat.value} reviews`}
+              accessibilityRole="button"
+              key={stat.label}
+              onPress={stat.onPress}
+              style={({ pressed }) => [styles.statCard, pressed && styles.statCardPressed]}
+            >
+              {content}
+            </Pressable>
+          ) : (
+            <View key={stat.label} style={styles.statCard}>{content}</View>
+          );
+        })}
       </View>
 
       <View style={styles.addWrap}>
@@ -287,6 +304,9 @@ const styles = StyleSheet.create({
     minHeight: 70,
     justifyContent: 'center',
     paddingHorizontal: spacing[5],
+  },
+  statCardPressed: {
+    opacity: 0.7,
   },
   statValue: {
     color: colors.purpleDark,
