@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import * as Location from 'expo-location';
+import { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,11 +19,10 @@ import {
   type DiscoverFilter,
 } from '@/lib/catalogFilters';
 import { useCatalog } from '@/providers/CatalogProvider';
+import { useLocation } from '@/providers/LocationProvider';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 const QUICK_FILTERS = ['Soupy', 'Spicy', 'Under $20', '5 min walk', 'Open now'] as const satisfies readonly DiscoverFilter[];
-const DEFAULT_LOCATION_LABEL = 'USYD / Camperdown';
-
 type FeedItem = {
   dish: Dish;
   version: DishVersion;
@@ -40,45 +38,17 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { snapshot, loading, error } = useCatalog();
+  const { coordinates, isLocating, locationLabel, refreshLocation } = useLocation();
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<DiscoverFilter | null>(null);
   const [shuffleRevision, setShuffleRevision] = useState(0);
-  const [locationLabel, setLocationLabel] = useState(DEFAULT_LOCATION_LABEL);
-  const [isLocating, setIsLocating] = useState(false);
-  const locatingRef = useRef(false);
-
-  const refreshLocation = useCallback(async () => {
-    if (locatingRef.current) return;
-
-    locatingRef.current = true;
-    setIsLocating(true);
-    try {
-      const permission = await Location.requestForegroundPermissionsAsync();
-      if (permission.status !== Location.PermissionStatus.GRANTED) return;
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const [address] = await Location.reverseGeocodeAsync(position.coords);
-      if (address) setLocationLabel(formatLocationLabel(address));
-    } catch {
-      // Keep the familiar campus fallback when location is unavailable.
-    } finally {
-      locatingRef.current = false;
-      setIsLocating(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshLocation();
-  }, [refreshLocation]);
 
   const feed = useMemo(() => {
     const query = normalizeCatalogText(search);
     const items = snapshot.dishes.flatMap((dish): FeedItem[] => {
       const dishVersions = snapshot.versions.filter((version) => version.dishId === dish.id);
       const matchingVersions = dishVersions.filter((version) => {
-        if (selectedFilter && !versionMatchesDiscoverFilter(dish, version, selectedFilter)) return false;
+        if (selectedFilter && !versionMatchesDiscoverFilter(dish, version, selectedFilter, new Date(), coordinates)) return false;
         return !query || searchableDishText(dish, [version]).includes(query);
       });
       const version = matchingVersions[0];
@@ -87,7 +57,7 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
         : [];
     });
     return interleaveByCuisine(items, shuffleRevision);
-  }, [search, selectedFilter, shuffleRevision, snapshot]);
+  }, [coordinates, search, selectedFilter, shuffleRevision, snapshot]);
 
   const cardWidth = (width - sizes.pageGutter * 2 - spacing[12]) / 2;
   const hasSearch = Boolean(search.trim());
@@ -237,17 +207,6 @@ function interleaveByCuisine(items: FeedItem[], shuffleRevision: number) {
     row += 1;
   }
   return result;
-}
-
-function formatLocationLabel(address: Location.LocationGeocodedAddress) {
-  const primary = address.district ?? address.subregion ?? address.city ?? address.name;
-  const secondary = address.city && address.city !== primary
-    ? address.city
-    : address.region && address.region !== primary
-      ? address.region
-      : null;
-  const parts = [primary, secondary].filter((part): part is string => Boolean(part));
-  return parts.slice(0, 2).join(' / ') || DEFAULT_LOCATION_LABEL;
 }
 
 function seededRandom(seed: number) {

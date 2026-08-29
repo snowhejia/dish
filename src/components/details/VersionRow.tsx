@@ -2,7 +2,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronRightIcon } from '@/components/icons';
 import { fallbackFoodImage, foodImages } from '@/data/images';
-import { money, versionDistance, versionMenuName, type DishVersion } from '@/data/mockData';
+import { money, versionMenuName, type DishVersion } from '@/data/mockData';
+import { versionDistanceFromCoordinates } from '@/lib/distance';
+import { useLocation } from '@/providers/LocationProvider';
 import { colors, radii, sizes } from '@/theme/tokens';
 
 import { FoodImage, ProgressBar } from './DetailPrimitives';
@@ -24,7 +26,9 @@ export function VersionRow({
   compact = false,
   showChevron = false,
 }: VersionRowProps) {
+  const { coordinates } = useLocation();
   const imageSize = compact ? sizes.restaurantThumb : sizes.versionThumb;
+  const distanceLabel = versionDistanceFromCoordinates(version, coordinates);
   return (
     <Pressable
       accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}`}
@@ -49,7 +53,7 @@ export function VersionRow({
         <Text numberOfLines={1} style={styles.meta}>
           {compact
             ? `${money(version.price)} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`
-            : `${versionDistance(version)} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`}
+            : `${distanceLabel} · ${version.votes} ${version.votes === 1 ? 'vote' : 'votes'}`}
         </Text>
         {compact ? null : <Text style={styles.price}>{money(version.price)}</Text>}
         <View style={styles.scoreRow}>

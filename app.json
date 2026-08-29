@@ -9,7 +9,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "app.dish.mobile",
-      "icon": "./assets/images/app-icon-dish.png"
+      "icon": "./assets/images/app-icon-dish.png",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Dish. uses your location to show nearby dish versions."
+      }
     },
     "android": {
       "package": "app.dish.mobile",

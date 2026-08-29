@@ -3,8 +3,10 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Dish, DishVersion } from '@/data/mockData';
-import { money, versionDistance } from '@/data/mockData';
+import { money } from '@/data/mockData';
 import { fallbackFoodImage, foodImages } from '@/data/images';
+import { versionDistanceFromCoordinates } from '@/lib/distance';
+import { useLocation } from '@/providers/LocationProvider';
 import { colors, radii, spacing } from '@/theme/tokens';
 
 export function DiscoverVersionCard({
@@ -20,6 +22,9 @@ export function DiscoverVersionCard({
   width: number;
   onPress: () => void;
 }) {
+  const { coordinates } = useLocation();
+  const distanceLabel = versionDistanceFromCoordinates(version, coordinates);
+
   return (
     <Pressable
       accessibilityLabel={`${dish.name} at ${version.restaurant}`}
@@ -43,7 +48,7 @@ export function DiscoverVersionCard({
           {version.restaurant}
         </Text>
         <Text numberOfLines={1} style={styles.meta}>
-          {version.cuisine} · {versionDistance(version)} · {money(version.price)}
+          {distanceLabel} · {money(version.price)}
         </Text>
       </View>
     </Pressable>

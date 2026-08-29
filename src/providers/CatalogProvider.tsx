@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
+import { File as ExpoFile } from 'expo-file-system';
 
 import { foodImages } from '@/data/images';
 import {
@@ -260,7 +261,7 @@ async function appendPhoto(form: FormData, photo: UploadPhoto | undefined) {
   }
   const upload = photo as Exclude<UploadPhoto, File | null>;
   const name = upload.name ?? `dish-${Date.now()}.jpg`;
-  const type = upload.type ?? 'image/jpeg';
+  const type = upload.type;
 
   if (Platform.OS === 'web') {
     const response = await fetch(upload.uri);
@@ -269,10 +270,11 @@ async function appendPhoto(form: FormData, photo: UploadPhoto | undefined) {
     return;
   }
 
+  const file = new ExpoFile(upload.uri);
   form.append('photo', {
-    uri: upload.uri,
     name,
-    type,
+    type: type || file.type || 'image/jpeg',
+    bytes: () => file.bytes(),
   } as unknown as Blob);
 }
 

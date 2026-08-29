@@ -1,4 +1,5 @@
 import type { Dish, DishVersion } from '@/data/mockData';
+import { versionMetresFromCoordinates, type Coordinates } from '@/lib/distance';
 
 export type DishKindFilter = 'Soupy' | 'Spicy';
 export type DiscoverFilter = DishKindFilter | 'Under $20' | '5 min walk' | 'Open now';
@@ -64,6 +65,7 @@ export function versionMatchesDiscoverFilter(
   version: DishVersion,
   filter: DiscoverFilter,
   now = new Date(),
+  coordinates: Coordinates | null = null,
 ) {
   switch (filter) {
     case 'Soupy':
@@ -72,7 +74,12 @@ export function versionMatchesDiscoverFilter(
     case 'Under $20':
       return version.price < 20;
     case '5 min walk':
-      return hasKnownDistance(version) && version.metres <= 450;
+      {
+        const liveMetres = versionMetresFromCoordinates(version, coordinates);
+        return liveMetres == null
+          ? hasKnownDistance(version) && version.metres <= 450
+          : liveMetres <= 450;
+      }
     case 'Open now':
       return isVersionOpenNow(version, now);
   }

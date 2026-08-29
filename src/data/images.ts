@@ -3,6 +3,25 @@ import type { ImageSourcePropType } from 'react-native';
 export const fallbackFoodImage: ImageSourcePropType = require('../../assets/images/splash-icon.png');
 export const fallbackRestaurantImage: ImageSourcePropType = require('../../assets/images/app-icon-dish.png');
 
+export const restaurantImages: Record<string, ImageSourcePropType> = {
+  'Hungry Mays': require('../../assets/images/restaurants/real/hungry-mays.jpg'),
+  'Nash - Big Brother Burgers': require('../../assets/images/restaurants/real/nash-big-brother-burgers.jpg'),
+  'Bar Luca': require('../../assets/images/restaurants/real/bar-luca.jpg'),
+  'The Grounds of The City': require('../../assets/images/restaurants/real/the-grounds-of-the-city.jpg'),
+  'Ramen Shogun Ultimo': require('../../assets/images/restaurants/real/ramen-shogun-ultimo.jpg'),
+  'KOKORO TOKYO MAZESOBA – Sydney': require('../../assets/images/restaurants/real/kokoro-tokyo-mazesoba.jpg'),
+  'MENSHO TOKYO Sydney': require('../../assets/images/restaurants/real/mensho-tokyo-sydney.jpg'),
+  'Crafted Ramen Misolado': require('../../assets/images/restaurants/real/crafted-ramen-misolado.jpg'),
+  'Cafe Margaret Double Bay': require('../../assets/images/restaurants/real/cafe-margaret-double-bay.jpg'),
+  'The Gidley': require('../../assets/images/restaurants/real/the-gidley.jpg'),
+  'El Maestro BBQ': require('../../assets/images/restaurants/real/el-maestro-bbq.jpg'),
+  "Xi'an Eatery": require('../../assets/images/restaurants/real/xian-eatery.jpg'),
+  'UniBros — Wentworth Building, USYD': require('../../assets/images/restaurants/real/unibros-usyd.jpg'),
+  'Yummy Noodle King': require('../../assets/images/restaurants/real/yummy-noodle-king.jpg'),
+  'Sichuan Pavilion': require('../../assets/images/restaurants/real/sichuan-pavilion.jpg'),
+  'Taste of Changbai Northeastern Cuisine': require('../../assets/images/restaurants/real/taste-of-changbai.jpg'),
+};
+
 export const foodImages: Record<string, ImageSourcePropType> = {
   'real-single-single-burger-v1': require('../../assets/images/food/real/625c569d050562de2b55efe28f493d41.jpg'),
   'real-classic-burger-v1': require('../../assets/images/food/real/0fcba55f7981f9cf33abaa776d138154.jpg'),

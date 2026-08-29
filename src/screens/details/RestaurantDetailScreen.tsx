@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Image } from 'expo-image';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,7 +13,7 @@ import {
   PixelEyebrow,
   VersionRow,
 } from '@/components/details';
-import { fallbackRestaurantImage } from '@/data/images';
+import { fallbackRestaurantImage, restaurantImages } from '@/data/images';
 import { versionAvailability, versionById, versionDistance, versions } from '@/data/mockData';
 import { colors, sizes, type } from '@/theme/tokens';
 import { useCatalog } from '@/providers/CatalogProvider';
@@ -46,6 +45,7 @@ export function RestaurantDetailScreen({
   );
   const heroVersion = restaurantVersions.find((version) => version.id === versionId) ?? restaurantVersions[0];
   const restaurantImageUrl = heroVersion?.restaurantImageUrl;
+  const restaurantFallbackImage = restaurantImages[resolvedName ?? ''] ?? fallbackRestaurantImage;
   const [restaurantImageFailed, setRestaurantImageFailed] = useState(false);
 
   useEffect(() => {
@@ -68,23 +68,14 @@ export function RestaurantDetailScreen({
     <DetailScreen safeTop={false}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.hero}>
-          {restaurantImageUrl && !restaurantImageFailed ? (
-            <FoodImage
-              source={{ uri: restaurantImageUrl }}
-              style={StyleSheet.absoluteFill}
-              accessibilityLabel={resolvedName}
-              onError={() => setRestaurantImageFailed(true)}
-            />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, styles.restaurantPlaceholder]}>
-              <Image
-                accessibilityLabel={`${resolvedName} has no restaurant photo yet`}
-                contentFit="contain"
-                source={fallbackRestaurantImage}
-                style={styles.restaurantPlaceholderLogo}
-              />
-            </View>
-          )}
+          <FoodImage
+            source={restaurantImageUrl && !restaurantImageFailed
+              ? { uri: restaurantImageUrl }
+              : restaurantFallbackImage}
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel={resolvedName}
+            onError={() => setRestaurantImageFailed(true)}
+          />
           <HeroFade height={90} />
           <IconButton
             floating
@@ -153,15 +144,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 210,
     backgroundColor: colors.imageSurface,
-  },
-  restaurantPlaceholder: {
-    alignItems: 'center',
-    backgroundColor: colors.lavender,
-    justifyContent: 'center',
-  },
-  restaurantPlaceholderLogo: {
-    height: 128,
-    width: 128,
   },
   back: {
     position: 'absolute',

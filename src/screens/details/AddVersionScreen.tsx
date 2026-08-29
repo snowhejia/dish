@@ -21,7 +21,6 @@ import {
   PixelEyebrow,
   StickyFooter,
 } from '@/components/details';
-import { SegmentedControl } from '@/components/tabs';
 import { dishes, versions } from '@/data/mockData';
 import { apiErrorMessage } from '@/lib/api';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
@@ -29,8 +28,8 @@ import { colors, radii, sizes, spacing } from '@/theme/tokens';
 type SourceMode = 'existing' | 'new';
 
 const SOURCE_OPTIONS = [
-  { label: 'Choose existing', value: 'existing' },
-  { label: 'Add new', value: 'new' },
+  { label: 'Existing', value: 'existing' },
+  { label: 'New', value: 'new' },
 ] as const;
 
 export type DishVersionContributionDraft = {
@@ -180,43 +179,59 @@ export function AddVersionScreen({
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <Text style={styles.intro}>
-              A version is one dish at one restaurant. Choose what already exists, or clearly add something new.
-            </Text>
-
-            <FormSection label="DISH">
-              <SegmentedControl onChange={setDishMode} options={SOURCE_OPTIONS} value={dishMode} />
+            <FormSection
+              accessory={(
+                <SourceToggle
+                  onChange={(value) => {
+                    setDishMode(value);
+                    setError(undefined);
+                  }}
+                  value={dishMode}
+                />
+              )}
+              label="DISH"
+            >
               {dishMode === 'existing' ? (
                 <SearchChoicePicker
-                  emptyMessage="No dishes are available yet. Choose Add new."
+                  emptyMessage="No dishes yet. Choose New."
                   items={dishes.map((dish) => ({
                     id: dish.id,
                     label: dish.name,
                     meta: [dish.cuisine, dish.dishType].filter(Boolean).join(' · '),
                     searchText: [dish.name, dish.cuisine, dish.dishType].filter(Boolean).join(' '),
                   }))}
-                  noMatchesMessage="No matching dishes. Try another name or choose Add new."
+                  noMatchesMessage="No matches. Try New."
                   onChange={setDishId}
-                  placeholder="Search dishes by name, cuisine or type"
+                  placeholder="Search dishes"
                   searchLabel="Search existing dishes"
-                  selectedLabel="Selected dish"
                   value={dishId}
                 />
               ) : (
                 <LabeledInput
-                  label="New dish name"
+                  hideLabel
+                  label="Dish name"
                   onChangeText={setNewDishName}
-                  placeholder="For example, Beef Noodle Soup"
+                  placeholder="New dish name"
                   value={newDishName}
                 />
               )}
             </FormSection>
 
-            <FormSection label="RESTAURANT">
-              <SegmentedControl onChange={setRestaurantMode} options={SOURCE_OPTIONS} value={restaurantMode} />
+            <FormSection
+              accessory={(
+                <SourceToggle
+                  onChange={(value) => {
+                    setRestaurantMode(value);
+                    setError(undefined);
+                  }}
+                  value={restaurantMode}
+                />
+              )}
+              label="RESTAURANT"
+            >
               {restaurantMode === 'existing' ? (
                 <SearchChoicePicker
-                  emptyMessage="The live restaurant list is unavailable. Choose Add new."
+                  emptyMessage="No restaurants yet. Choose New."
                   items={restaurantOptions.map((restaurant) => ({
                     id: restaurant.id,
                     label: restaurant.name,
@@ -225,75 +240,80 @@ export function AddVersionScreen({
                       .filter(Boolean)
                       .join(' '),
                   }))}
-                  noMatchesMessage="No matching restaurants. Try another name or address, or choose Add new."
+                  noMatchesMessage="No matches. Try New."
                   onChange={setRestaurantId}
-                  placeholder="Search restaurants by name or address"
+                  placeholder="Search restaurants"
                   searchLabel="Search existing restaurants"
-                  selectedLabel="Selected restaurant"
                   value={restaurantId}
                 />
               ) : (
                 <View style={styles.inputGroup}>
                   <LabeledInput
-                    label="New restaurant name"
+                    hideLabel
+                    label="Restaurant name"
                     onChangeText={setNewRestaurantName}
-                    placeholder="Restaurant name"
+                    placeholder="New restaurant name"
                     value={newRestaurantName}
                   />
                   <LabeledInput
+                    hideLabel
                     label="Address"
                     onChangeText={setNewRestaurantAddress}
-                    placeholder="Optional, but helps us verify it"
+                    placeholder="Address (optional)"
                     value={newRestaurantAddress}
                   />
                 </View>
               )}
             </FormSection>
 
-            <FormSection label="VERSION DETAILS">
+            <FormSection label="DETAILS">
               <View style={styles.inputGroup}>
+                <View style={styles.detailsPair}>
+                  <View style={styles.detailField}>
+                    <LabeledInput
+                      label="Menu name"
+                      onChangeText={setMenuName}
+                      placeholder="Optional"
+                      value={menuName}
+                    />
+                  </View>
+                  <View style={styles.detailField}>
+                    <LabeledInput
+                      keyboardType="decimal-pad"
+                      label="Price ($)"
+                      onChangeText={setPricePaid}
+                      placeholder="0.00"
+                      value={pricePaid}
+                    />
+                  </View>
+                </View>
                 <LabeledInput
-                  label="Menu name"
-                  onChangeText={setMenuName}
-                  placeholder="Optional — the exact name on the menu"
-                  value={menuName}
-                />
-                <LabeledInput
-                  keyboardType="decimal-pad"
-                  label="Price you paid"
-                  onChangeText={setPricePaid}
-                  placeholder="Optional"
-                  prefix="$"
-                  value={pricePaid}
-                />
-                <LabeledInput
-                  label="Anything else?"
+                  label="Note"
                   multiline
                   onChangeText={setNote}
-                  placeholder="Optional note for the reviewer"
+                  placeholder="Optional"
                   value={note}
                 />
               </View>
             </FormSection>
 
-            <PixelEyebrow style={styles.photoHeading}>PHOTO OF THE DISH</PixelEyebrow>
-            <View style={styles.photoRow}>
-              <Pressable onPress={pickPhoto} style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}>
+            <FormSection label="PHOTO">
+              <Pressable
+                accessibilityLabel={photoUri ? 'Change dish photo' : 'Add dish photo'}
+                accessibilityRole="button"
+                onPress={pickPhoto}
+                style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}
+              >
                 {photoUri ? (
-                  <FoodImage accessibilityLabel="Selected dish photo" source={{ uri: photoUri }} style={StyleSheet.absoluteFill} />
+                  <FoodImage accessibilityLabel="Selected dish photo" source={{ uri: photoUri }} style={styles.photoPreview} />
                 ) : (
-                  <>
-                    <PlusIcon color={colors.purple} size={20} strokeWidth={1.8} />
-                    <Text style={styles.photoLabel}>Add photo</Text>
-                  </>
+                  <View style={styles.photoIcon}>
+                    <PlusIcon color={colors.purple} size={18} strokeWidth={1.8} />
+                  </View>
                 )}
+                <Text style={styles.photoLabel}>{photoUri ? 'Change photo' : 'Add photo'}</Text>
               </Pressable>
-              <View style={styles.moderationCard}>
-                <Text style={styles.moderationText}>
-                  Contributions are reviewed before they appear on Dish. You can follow the status in My contributions.
-                </Text>
-              </View>
-            </View>
+            </FormSection>
 
             {error ? (
               <View accessibilityRole="alert" style={styles.errorCard}>
@@ -313,11 +333,46 @@ export function AddVersionScreen({
   );
 }
 
-function FormSection({ children, label }: { children: React.ReactNode; label: string }) {
+function FormSection({
+  accessory,
+  children,
+  label,
+}: {
+  accessory?: React.ReactNode;
+  children: React.ReactNode;
+  label: string;
+}) {
   return (
     <View style={styles.section}>
-      <PixelEyebrow>{label}</PixelEyebrow>
+      <View style={[styles.sectionHeader, accessory ? styles.sectionHeaderWithAccessory : undefined]}>
+        <PixelEyebrow>{label}</PixelEyebrow>
+        {accessory}
+      </View>
       <View style={styles.sectionContent}>{children}</View>
+    </View>
+  );
+}
+
+function SourceToggle({ onChange, value }: { onChange: (value: SourceMode) => void; value: SourceMode }) {
+  return (
+    <View style={styles.sourceToggle}>
+      {SOURCE_OPTIONS.map((option) => {
+        const selected = option.value === value;
+        return (
+          <Pressable
+            accessibilityRole="tab"
+            accessibilityState={{ selected }}
+            hitSlop={{ bottom: 6, top: 6 }}
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={[styles.sourceOption, selected && styles.sourceOptionSelected]}
+          >
+            <Text style={[styles.sourceOptionLabel, !selected && styles.sourceOptionLabelInactive]}>
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -329,7 +384,6 @@ function SearchChoicePicker({
   onChange,
   placeholder,
   searchLabel,
-  selectedLabel,
   value,
 }: {
   emptyMessage: string;
@@ -338,7 +392,6 @@ function SearchChoicePicker({
   onChange: (id: string) => void;
   placeholder: string;
   searchLabel: string;
-  selectedLabel: string;
   value: string;
 }) {
   const [query, setQuery] = useState('');
@@ -354,14 +407,14 @@ function SearchChoicePicker({
   if (selected && !choosing) {
     return (
       <View style={styles.selectedChoice}>
-        <View style={styles.selectedChoiceCopy}>
-          <Text style={styles.selectedChoiceCaption}>{selectedLabel}</Text>
+        <Text numberOfLines={1} style={styles.selectedChoiceLine}>
           <Text style={styles.selectedChoiceLabel}>{selected.label}</Text>
-          {selected.meta ? <Text numberOfLines={2} style={styles.selectedChoiceMeta}>{selected.meta}</Text> : null}
-        </View>
+          {selected.meta ? <Text style={styles.selectedChoiceMeta}>  ·  {selected.meta}</Text> : null}
+        </Text>
         <Pressable
-          accessibilityLabel={`Change ${selectedLabel.toLowerCase()}`}
+          accessibilityLabel={`Change ${selected.label}`}
           accessibilityRole="button"
+          hitSlop={6}
           onPress={() => {
             setQuery('');
             setChoosing(true);
@@ -399,12 +452,15 @@ function SearchChoicePicker({
           style={styles.searchChoiceInput}
           value={query}
         />
-        {query ? (
+        {query || selected ? (
           <Pressable
-            accessibilityLabel="Clear search"
+            accessibilityLabel={query ? 'Clear search' : 'Cancel change'}
             accessibilityRole="button"
             hitSlop={8}
-            onPress={() => setQuery('')}
+            onPress={() => {
+              if (query) setQuery('');
+              else setChoosing(false);
+            }}
             style={({ pressed }) => [styles.clearSearchButton, pressed && styles.pressed]}
           >
             <XIcon color={colors.muted} size={15} strokeWidth={1.8} />
@@ -412,9 +468,7 @@ function SearchChoicePicker({
         ) : null}
       </View>
 
-      {!queryTerms.length ? (
-        <Text style={styles.searchChoiceHint}>Start typing to find a match.</Text>
-      ) : matches.length ? (
+      {!queryTerms.length ? null : matches.length ? (
         <View accessibilityRole="radiogroup" style={styles.searchResults}>
           {matches.map((item) => {
             const isSelected = item.id === value;
@@ -434,18 +488,15 @@ function SearchChoicePicker({
                   pressed && styles.pressed,
                 ]}
               >
-                <View style={styles.searchResultCopy}>
+                <Text numberOfLines={1} style={styles.searchResultLine}>
                   <Text style={[styles.searchResultLabel, isSelected && styles.searchResultLabelSelected]}>
                     {item.label}
                   </Text>
                   {item.meta ? (
-                    <Text numberOfLines={2} style={[styles.searchResultMeta, isSelected && styles.searchResultMetaSelected]}>
-                      {item.meta}
+                    <Text style={[styles.searchResultMeta, isSelected && styles.searchResultMetaSelected]}>
+                      {'  ·  '}{item.meta}
                     </Text>
                   ) : null}
-                </View>
-                <Text style={[styles.selectChoiceLabel, isSelected && styles.selectChoiceLabelSelected]}>
-                  {isSelected ? 'Selected' : 'Select'}
                 </Text>
               </Pressable>
             );
@@ -455,16 +506,6 @@ function SearchChoicePicker({
         <Text style={styles.emptyChoice}>{noMatchesMessage}</Text>
       )}
 
-      {selected && choosing ? (
-        <Pressable
-          accessibilityLabel={`Keep ${selected.label}`}
-          accessibilityRole="button"
-          onPress={() => setChoosing(false)}
-          style={({ pressed }) => [styles.keepChoiceButton, pressed && styles.pressed]}
-        >
-          <Text numberOfLines={1} style={styles.keepChoiceLabel}>Keep {selected.label}</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -474,27 +515,26 @@ function normalizeSearch(value: string) {
 }
 
 function LabeledInput({
+  hideLabel = false,
   keyboardType,
   label,
   multiline = false,
   onChangeText,
   placeholder,
-  prefix,
   value,
 }: {
+  hideLabel?: boolean;
   keyboardType?: KeyboardTypeOptions;
   label: string;
   multiline?: boolean;
   onChangeText: (value: string) => void;
   placeholder: string;
-  prefix?: string;
   value: string;
 }) {
   return (
     <View>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      {hideLabel ? null : <Text style={styles.fieldLabel}>{label}</Text>}
       <View style={[styles.inputFrame, multiline && styles.inputFrameMultiline]}>
-        {prefix ? <Text style={styles.inputPrefix}>{prefix}</Text> : null}
         <TextInput
           accessibilityLabel={label}
           keyboardType={keyboardType}
@@ -571,19 +611,48 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: sizes.pageGutter,
-    paddingTop: spacing[18],
-  },
-  intro: {
-    color: colors.muted,
-    fontSize: 13,
-    lineHeight: 19.5,
+    paddingTop: spacing[4],
   },
   section: {
-    paddingTop: spacing[22],
+    paddingTop: spacing[14],
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sectionHeaderWithAccessory: {
+    minHeight: 32,
   },
   sectionContent: {
-    gap: spacing[12],
-    paddingTop: spacing[10],
+    gap: spacing[10],
+    paddingTop: spacing[7],
+  },
+  sourceToggle: {
+    backgroundColor: colors.controlSurface,
+    borderRadius: radii.compact,
+    flexDirection: 'row',
+    padding: spacing[2],
+    width: 176,
+  },
+  sourceOption: {
+    alignItems: 'center',
+    borderRadius: radii.badge,
+    flex: 1,
+    justifyContent: 'center',
+    paddingVertical: spacing[5],
+  },
+  sourceOptionSelected: {
+    backgroundColor: colors.surface,
+  },
+  sourceOptionLabel: {
+    color: colors.ink,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 15,
+  },
+  sourceOptionLabelInactive: {
+    color: colors.muted,
   },
   searchChoicePicker: {
     gap: spacing[8],
@@ -596,8 +665,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing[9],
-    minHeight: 50,
-    paddingHorizontal: spacing[14],
+    minHeight: 44,
+    paddingHorizontal: spacing[12],
   },
   searchChoiceInput: {
     color: colors.ink,
@@ -615,12 +684,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 24,
   },
-  searchChoiceHint: {
-    color: colors.muted,
-    fontSize: 12.5,
-    lineHeight: 18,
-    paddingHorizontal: spacing[3],
-  },
   searchResults: {
     borderColor: colors.borderSoft,
     borderRadius: radii.button,
@@ -633,21 +696,22 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.divider,
     borderBottomWidth: 1,
     flexDirection: 'row',
-    gap: spacing[10],
-    minHeight: 58,
-    paddingHorizontal: spacing[13],
-    paddingVertical: spacing[10],
+    minHeight: 40,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
   },
   searchResultSelected: {
     backgroundColor: colors.lavender,
   },
-  searchResultCopy: {
+  searchResultLine: {
+    color: colors.body,
     flex: 1,
-    minWidth: 0,
+    fontSize: 12.5,
+    lineHeight: 17,
   },
   searchResultLabel: {
     color: colors.body,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 17,
   },
@@ -656,21 +720,11 @@ const styles = StyleSheet.create({
   },
   searchResultMeta: {
     color: colors.muted,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: spacing[3],
+    fontSize: 11.5,
+    lineHeight: 17,
   },
   searchResultMetaSelected: {
     color: colors.bodySoft,
-  },
-  selectChoiceLabel: {
-    color: colors.purple,
-    fontSize: 11.5,
-    fontWeight: '600',
-    lineHeight: 15,
-  },
-  selectChoiceLabelSelected: {
-    color: colors.purpleDark,
   },
   selectedChoice: {
     alignItems: 'center',
@@ -680,57 +734,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing[10],
-    minHeight: 68,
-    paddingHorizontal: spacing[14],
-    paddingVertical: spacing[11],
+    minHeight: 44,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[8],
   },
-  selectedChoiceCopy: {
+  selectedChoiceLine: {
     flex: 1,
-    minWidth: 0,
-  },
-  selectedChoiceCaption: {
-    color: colors.purpleDark,
-    fontSize: 10.5,
-    fontWeight: '600',
-    lineHeight: 14,
-    marginBottom: spacing[2],
+    fontSize: 12.5,
+    lineHeight: 17,
   },
   selectedChoiceLabel: {
     color: colors.titleInk,
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '700',
-    lineHeight: 18,
+    lineHeight: 17,
   },
   selectedChoiceMeta: {
     color: colors.bodySoft,
-    fontSize: 11,
-    lineHeight: 15,
-    marginTop: spacing[2],
+    fontSize: 11.5,
+    lineHeight: 17,
   },
   changeChoiceButton: {
     backgroundColor: colors.surface,
     borderRadius: radii.pill,
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[10],
+    paddingVertical: spacing[6],
   },
   changeChoiceLabel: {
     color: colors.purple,
     fontSize: 11.5,
     fontWeight: '700',
-    lineHeight: 15,
-  },
-  keepChoiceButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.chipSurface,
-    borderRadius: radii.pill,
-    maxWidth: '100%',
-    paddingHorizontal: spacing[12],
-    paddingVertical: spacing[7],
-  },
-  keepChoiceLabel: {
-    color: colors.purpleDark,
-    fontSize: 11.5,
-    fontWeight: '600',
     lineHeight: 15,
   },
   emptyChoice: {
@@ -740,17 +773,25 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     paddingHorizontal: spacing[13],
-    paddingVertical: spacing[11],
+    paddingVertical: spacing[9],
   },
   inputGroup: {
-    gap: spacing[12],
+    gap: spacing[10],
+  },
+  detailsPair: {
+    flexDirection: 'row',
+    gap: spacing[10],
+  },
+  detailField: {
+    flex: 1,
+    minWidth: 0,
   },
   fieldLabel: {
     color: colors.muted,
     fontSize: 11.5,
     fontWeight: '600',
     lineHeight: 15,
-    marginBottom: spacing[7],
+    marginBottom: spacing[5],
   },
   inputFrame: {
     alignItems: 'center',
@@ -758,19 +799,13 @@ const styles = StyleSheet.create({
     borderRadius: radii.button,
     borderWidth: 1,
     flexDirection: 'row',
-    minHeight: 50,
-    paddingHorizontal: spacing[14],
+    minHeight: 44,
+    paddingHorizontal: spacing[12],
   },
   inputFrameMultiline: {
     alignItems: 'flex-start',
-    minHeight: 86,
-    paddingVertical: spacing[12],
-  },
-  inputPrefix: {
-    color: colors.ink,
-    fontSize: 14.5,
-    fontWeight: '600',
-    lineHeight: 19,
+    minHeight: 66,
+    paddingVertical: spacing[10],
   },
   fieldInput: {
     color: colors.ink,
@@ -781,49 +816,38 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   fieldInputMultiline: {
-    minHeight: 60,
-  },
-  photoHeading: {
-    marginTop: spacing[22],
-  },
-  photoRow: {
-    flexDirection: 'row',
-    gap: spacing[10],
-    marginTop: spacing[9],
+    minHeight: 44,
   },
   photoButton: {
     alignItems: 'center',
     borderColor: colors.borderStrong,
     borderRadius: radii.button,
     borderStyle: 'dashed',
-    borderWidth: 1.5,
-    flexShrink: 0,
-    gap: spacing[6],
-    height: sizes.addPhoto,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: spacing[10],
+    minHeight: 48,
+    padding: spacing[4],
+    paddingRight: spacing[12],
+  },
+  photoIcon: {
+    alignItems: 'center',
+    backgroundColor: colors.controlSurface,
+    borderRadius: radii.compact,
+    height: 38,
     justifyContent: 'center',
-    overflow: 'hidden',
-    width: sizes.addPhoto,
+    width: 38,
+  },
+  photoPreview: {
+    borderRadius: radii.compact,
+    height: 38,
+    width: 38,
   },
   photoLabel: {
     color: colors.purple,
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 14,
-  },
-  moderationCard: {
-    backgroundColor: colors.softSurface,
-    borderRadius: radii.button,
-    flex: 1,
-    justifyContent: 'center',
-    minHeight: sizes.addPhoto,
-    minWidth: 0,
-    paddingHorizontal: spacing[14],
-    paddingVertical: spacing[13],
-  },
-  moderationText: {
-    color: colors.muted,
     fontSize: 12.5,
-    lineHeight: 18.75,
+    fontWeight: '600',
+    lineHeight: 17,
   },
   errorCard: {
     backgroundColor: '#FFF0F0',

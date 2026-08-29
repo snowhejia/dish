@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { colors } from '@/theme/tokens';
 import { AuthProvider } from '@/providers/AuthProvider';
 import { CatalogProvider } from '@/providers/CatalogProvider';
+import { LocationProvider } from '@/providers/LocationProvider';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -17,18 +18,20 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <CatalogProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
-          <StatusBar style="dark" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.surface },
-              animation: 'slide_from_right',
-            }}
-          />
-        </GestureHandlerRootView>
-      </CatalogProvider>
+      <LocationProvider>
+        <CatalogProvider>
+          <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.surface }}>
+            <StatusBar style="dark" />
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.surface },
+                animation: 'slide_from_right',
+              }}
+            />
+          </GestureHandlerRootView>
+        </CatalogProvider>
+      </LocationProvider>
     </AuthProvider>
   );
 }
