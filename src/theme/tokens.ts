@@ -118,17 +118,21 @@ export const type = {
   } as TextStyle,
 } as const;
 
-const iosShadow = (y: number, blur: number, opacity: number): ViewStyle => ({
-  shadowColor: '#19143C',
+const iosShadow = (y: number, blur: number, opacity: number, color = '#19143C'): ViewStyle => ({
+  shadowColor: color,
   shadowOffset: { width: 0, height: y },
   shadowRadius: blur / 2,
   shadowOpacity: opacity,
 });
 
 export const shadows = {
-  search: Platform.select<ViewStyle>({ ios: iosShadow(2, 8, 0.07), android: { elevation: 2 }, default: {} }),
-  primary: Platform.select<ViewStyle>({ ios: iosShadow(6, 18, 0.25), android: { elevation: 6 }, default: {} }),
+  search: Platform.select<ViewStyle>({ ios: iosShadow(2, 8, 0.07, '#3C288C'), android: { elevation: 2 }, default: {} }),
+  primary: Platform.select<ViewStyle>({
+    ios: iosShadow(6, 18, 0.32, '#6A5AE0'),
+    android: { elevation: 6 },
+    web: { boxShadow: '0 6px 18px rgba(106,90,224,0.32)' },
+    default: {},
+  }),
   floating: Platform.select<ViewStyle>({ ios: iosShadow(4, 14, 0.14), android: { elevation: 5 }, default: {} }),
   mapCard: Platform.select<ViewStyle>({ ios: iosShadow(12, 34, 0.22), android: { elevation: 12 }, default: {} }),
 } as const;
-

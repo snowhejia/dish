@@ -72,8 +72,8 @@ function Glyph({ name, color, filled, strokeWidth }: GlyphProps & { name: IconNa
     case 'search':
       return (
         <G {...common}>
-          <Circle cx={10.4} cy={10.4} r={5.75} />
-          <Line x1={14.75} y1={14.75} x2={20} y2={20} />
+          <Circle cx={10.5} cy={10.5} r={6.9} />
+          <Line x1={15.9} y1={15.9} x2={21} y2={21} />
         </G>
       );
 
@@ -98,10 +98,10 @@ function Glyph({ name, color, filled, strokeWidth }: GlyphProps & { name: IconNa
 
     case 'back':
     case 'chevron-left':
-      return <Path d="m15.8 4.5-7 7.5 7 7.5" {...common} />;
+      return <Path d="M16.2 2 7.2 12l9 10" {...common} />;
 
     case 'chevron-right':
-      return <Path d="m8.2 4.5 7 7.5-7 7.5" {...common} />;
+      return <Path d="M7.2 2 16.2 12l-9 10" {...common} />;
 
     case 'chevron-down':
       return <Path d="m4.5 8.2 7.5 7 7.5-7" {...common} />;
@@ -112,26 +112,22 @@ function Glyph({ name, color, filled, strokeWidth }: GlyphProps & { name: IconNa
     case 'map':
       return (
         <G {...common}>
-          <Path d="m3.5 5.1 5-2.1 7 2.1 5-2.1v15.9l-5 2.1-7-2.1-5 2.1V5.1Z" fill={filled ? color : 'none'} />
-          <Path d="M8.5 3v15.9M15.5 5.1V21" stroke={filled ? colors.white : color} />
-          <Path d="M12 13.2s-2.1-1.8-2.1-3.7a2.1 2.1 0 1 1 4.2 0c0 1.9-2.1 3.7-2.1 3.7Z" fill={filled ? colors.white : 'none'} stroke={filled ? colors.white : color} />
+          <Path d="M12 21.75s-6.9-5.4-6.9-9.9a6.9 6.9 0 0 1 13.8 0c0 4.5-6.9 9.9-6.9 9.9Z" fill={filled ? color : 'none'} />
+          <Circle cx={12} cy={11.7} r={2.4} fill={filled ? colors.white : 'none'} />
         </G>
       );
 
     case 'compare':
       return (
         <G {...common}>
-          <Rect x={3.2} y={4.1} width={6.8} height={9.2} rx={1.3} fill={filled ? color : 'none'} />
-          <Rect x={14} y={10.7} width={6.8} height={9.2} rx={1.3} fill={filled ? color : 'none'} />
-          <Path d="M12.2 6.8h6.4m0 0-2.2-2.2m2.2 2.2L16.4 9" />
-          <Path d="M11.8 17.2H5.4m0 0 2.2-2.2m-2.2 2.2 2.2 2.2" />
+          <Path d="M4.5 19.5V9M12 19.5v-15M19.5 19.5v-7.5" />
         </G>
       );
 
     case 'directions':
       return (
         <Path
-          d="M20.4 3.6 14.1 20.3l-2.45-7.1-7.35-2.45L20.4 3.6Z"
+          d="M21 3 14.1 21.3l-2.7-7.95L3 10.65 21 3Z"
           {...common}
           fill={filled ? color : 'none'}
         />
@@ -139,12 +135,11 @@ function Glyph({ name, color, filled, strokeWidth }: GlyphProps & { name: IconNa
 
     case 'review':
       return (
-        <G {...common}>
-          <Path d="M5 3.6h9.2a1.6 1.6 0 0 1 1.6 1.6v5.25M5 3.6a1.6 1.6 0 0 0-1.6 1.6v13.6A1.6 1.6 0 0 0 5 20.4h8" />
-          <Path d="m13.1 18.9 1.15-3.7 5.45-5.45 2.15 2.15-5.45 5.45-3.3 1.55Z" fill={filled ? color : 'none'} />
-          <Line x1={7} y1={8} x2={12.5} y2={8} />
-          <Line x1={7} y1={11.5} x2={10.5} y2={11.5} />
-        </G>
+        <Path
+          d="M20.25 15.75a2.4 2.4 0 0 1-2.4 2.4H7.5l-4.35 3.45V5.4A2.4 2.4 0 0 1 5.55 3h12.3a2.4 2.4 0 0 1 2.4 2.4Z"
+          {...common}
+          fill={filled ? color : 'none'}
+        />
       );
 
     case 'plus':
@@ -311,7 +306,6 @@ export function Icon({
     <Svg
       {...svgProps}
       accessibilityLabel={accessibilityLabel}
-      accessible={Boolean(accessibilityLabel)}
       height={size}
       preserveAspectRatio="xMidYMid meet"
       viewBox="0 0 24 24"
@@ -354,4 +348,3 @@ export const SettingsIcon = (props: IconComponentProps) => <Icon {...props} name
 export const PhotosIcon = (props: IconComponentProps) => <Icon {...props} name="photos" />;
 export const ContributionsIcon = (props: IconComponentProps) => <Icon {...props} name="contributions" />;
 export const HeartIcon = (props: IconComponentProps) => <Icon {...props} name="heart" />;
-

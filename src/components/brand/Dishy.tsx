@@ -15,7 +15,7 @@ import { colors } from '@/theme/tokens';
 
 const VIEWBOX_WIDTH = 64;
 const VIEWBOX_HEIGHT = 56;
-const OUTLINE = colors.purpleDark;
+const OUTLINE = colors.purple;
 const LINE_WIDTH = 2.35;
 
 export type DishyVariant =
@@ -79,7 +79,7 @@ function Body() {
       />
       <Path
         d="M21.7 10h20.6l2.7 2.7v21.1l-2.7 2.7H21.7L19 33.8V12.7l2.7-2.7Z"
-        fill={colors.mascotBody}
+        fill={colors.white}
       />
       <Path d="M22.4 11.4h18.4" stroke={colors.white} strokeLinecap="round" strokeWidth={1.1} opacity={0.82} />
     </G>
@@ -208,7 +208,7 @@ function NoodleBowl() {
         strokeLinejoin="round"
         strokeWidth={1.85}
       />
-      <Ellipse cx={54} cy={41.05} rx={8.25} ry={2.75} fill={colors.mascotBody} stroke={OUTLINE} strokeWidth={1.85} />
+      <Ellipse cx={54} cy={41.05} rx={8.25} ry={2.75} fill={colors.white} stroke={OUTLINE} strokeWidth={1.85} />
       <Path d="M48.5 41.25c1.1-2 2.15 1.45 3.2-.25s2.05 1.25 3.15-.4 2.1 1 3.4-.1" fill="none" stroke={colors.orange} strokeLinecap="round" strokeWidth={1.4} />
       <Circle cx={50.7} cy={40.15} r={0.9} fill={colors.success} />
       <Circle cx={57.2} cy={39.8} r={0.85} fill={colors.success} />
@@ -267,8 +267,8 @@ function VersionCard({ side }: { side: 'left' | 'right' }) {
     <G>
       <Rect x={x} y={24} width={15.5} height={13.2} rx={1.4} fill={colors.lavender} stroke={OUTLINE} strokeWidth={1.75} />
       <Rect x={x + 2.1} y={26.2} width={4.1} height={3.3} rx={0.5} fill={colors.purple} />
-      <Line x1={x + 7.6} y1={26.9} x2={x + 13} y2={26.9} stroke={colors.purpleDark} strokeLinecap="round" strokeWidth={1.1} />
-      <Line x1={x + 7.6} y1={29.1} x2={x + 11.8} y2={29.1} stroke={colors.purpleDark} strokeLinecap="round" strokeWidth={1.1} />
+      <Line x1={x + 7.6} y1={26.9} x2={x + 13} y2={26.9} stroke={colors.purple} strokeLinecap="round" strokeWidth={1.1} />
+      <Line x1={x + 7.6} y1={29.1} x2={x + 11.8} y2={29.1} stroke={colors.purple} strokeLinecap="round" strokeWidth={1.1} />
       <Line x1={x + 2.1} y1={33.4} x2={x + 12.8} y2={33.4} stroke={colors.purple} strokeLinecap="round" strokeWidth={1.15} opacity={0.7} />
     </G>
   );
@@ -309,7 +309,7 @@ function ReviewRear() {
 function ReviewBookAndPencil() {
   return (
     <G>
-      <Path d="M9.2 34.2c7.7-2.1 15.25-1.45 22.8 1.25v13c-7.55-2.7-15.1-3.35-22.8-1.25v-13Z" fill={colors.mascotBody} stroke={OUTLINE} strokeLinejoin="round" strokeWidth={1.7} />
+      <Path d="M9.2 34.2c7.7-2.1 15.25-1.45 22.8 1.25v13c-7.55-2.7-15.1-3.35-22.8-1.25v-13Z" fill={colors.white} stroke={OUTLINE} strokeLinejoin="round" strokeWidth={1.7} />
       <Path d="M32 35.45c7.55-2.7 15.1-3.35 22.8-1.25v13c-7.7-2.1-15.25-1.45-22.8 1.25v-13Z" fill={colors.surface} stroke={OUTLINE} strokeLinejoin="round" strokeWidth={1.7} />
       <Line x1={32} y1={35.5} x2={32} y2={48.25} stroke={OUTLINE} strokeWidth={1.25} />
       <Line x1={13} y1={38} x2={26.6} y2={39.1} stroke={colors.iconMuted} strokeLinecap="round" strokeWidth={1.1} />
@@ -438,7 +438,6 @@ export function Dishy({ variant, size = 96, accessibilityLabel, ...svgProps }: D
     <Svg
       {...svgProps}
       accessibilityLabel={accessibilityLabel}
-      accessible={Boolean(accessibilityLabel)}
       height={(safeSize * VIEWBOX_HEIGHT) / VIEWBOX_WIDTH}
       preserveAspectRatio="xMidYMid meet"
       viewBox={`0 0 ${VIEWBOX_WIDTH} ${VIEWBOX_HEIGHT}`}
