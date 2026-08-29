@@ -35,7 +35,6 @@ import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type CatalogTab = 'dishes' | 'restaurants';
-type PriceFilter = 15 | 20 | 30;
 type DistanceFilter = 500 | 1000 | 2000;
 
 type CatalogRowModel = {
@@ -52,7 +51,6 @@ const SEGMENTS = [
   { label: 'Restaurants', value: 'restaurants' },
 ] as const;
 
-const PRICE_OPTIONS = [15, 20, 30] as const;
 const DISTANCE_OPTIONS = [500, 1000, 2000] as const;
 const DISH_KIND_OPTIONS = ['Soupy', 'Spicy'] as const;
 
@@ -69,7 +67,6 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
   const [search, setSearch] = useState('');
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [dishKind, setDishKind] = useState<DishKindFilter | null>(null);
-  const [price, setPrice] = useState<PriceFilter | null>(null);
   const [distance, setDistance] = useState<DistanceFilter | null>(null);
   const [openNow, setOpenNow] = useState(false);
 
@@ -89,8 +86,6 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         const matchingVersions = allVersions.filter((version) => {
           if (cuisine && dish.cuisine !== cuisine && version.cuisine !== cuisine) return false;
           if (dishKind && !versionMatchesKind(dish, version, dishKind)) return false;
-          if (price && version.price >= price) return false;
-          if (distance && (!hasKnownDistance(version) || version.metres > distance)) return false;
           return true;
         });
         const first = matchingVersions[0];
@@ -130,13 +125,12 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         onPress: () => onOpenRestaurant(restaurant.name, first.id),
       }];
     });
-  }, [cuisine, dishKind, distance, onOpenDish, onOpenRestaurant, openNow, price, search, snapshot, tab]);
+  }, [cuisine, dishKind, distance, onOpenDish, onOpenRestaurant, openNow, search, snapshot, tab]);
 
   const activeFilterCount = [
     Boolean(cuisine),
-    Boolean(distance),
     tab === 'dishes' && Boolean(dishKind),
-    tab === 'dishes' && Boolean(price),
+    tab === 'restaurants' && Boolean(distance),
     tab === 'restaurants' && openNow,
   ].filter(Boolean).length;
 
@@ -144,7 +138,6 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
     setSearch('');
     setCuisine(null);
     setDishKind(null);
-    setPrice(null);
     setDistance(null);
     setOpenNow(false);
   };
@@ -181,30 +174,25 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
           onPress={() => setCuisine(nextOption(cuisine, cuisineOptions))}
         />
         {tab === 'dishes' ? (
+          <FilterChip
+            active={Boolean(dishKind)}
+            label={dishKind ?? 'Dish type'}
+            onPress={() => setDishKind(nextOption(dishKind, DISH_KIND_OPTIONS))}
+          />
+        ) : (
           <>
             <FilterChip
-              active={Boolean(dishKind)}
-              label={dishKind ?? 'Dish type'}
-              onPress={() => setDishKind(nextOption(dishKind, DISH_KIND_OPTIONS))}
+              active={openNow}
+              label="Open now"
+              onPress={() => setOpenNow((value) => !value)}
             />
             <FilterChip
-              active={Boolean(price)}
-              label={price ? `Under $${price}` : 'Price'}
-              onPress={() => setPrice(nextOption(price, PRICE_OPTIONS))}
+              active={Boolean(distance)}
+              label={distance ? `Within ${formatDistance(distance)}` : 'Distance'}
+              onPress={() => setDistance(nextOption(distance, DISTANCE_OPTIONS))}
             />
           </>
-        ) : (
-          <FilterChip
-            active={openNow}
-            label="Open now"
-            onPress={() => setOpenNow((value) => !value)}
-          />
         )}
-        <FilterChip
-          active={Boolean(distance)}
-          label={distance ? `Within ${formatDistance(distance)}` : 'Distance'}
-          onPress={() => setDistance(nextOption(distance, DISTANCE_OPTIONS))}
-        />
       </HorizontalChipList>
 
       <View style={styles.resultHeading}>

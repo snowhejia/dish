@@ -7,12 +7,14 @@ import { imageObjectExists, isStorageConfigured, putImageObject } from './storag
 
 type RealDataState = {
   imported: number;
+  importedRestaurants: number;
   exactMediaLinks: number;
   visibleMediaLinks: number;
   legacyTaxonomy: number;
   taxonomyMismatches: number;
   canonicalNameMismatches: number;
   missingRestaurantCoordinates: number;
+  versionRestaurantMismatches: number;
 };
 
 type RestaurantCoverState = {
@@ -27,6 +29,9 @@ type RestaurantCoverExpectation = {
   fileName: string;
   objectKey: string;
 };
+
+const REAL_DATA_REVISION = 'catalog_seed_20260830_verified_sydney_v1';
+const REAL_DATA_REVISION_CHECKSUM = 'verified-sydney-restaurants-and-current-menus-v1';
 
 export async function uploadBundledSeedMedia(fileNames?: Iterable<string>) {
   if (!isStorageConfigured()) throw new Error('Cloudflare R2 variables must be configured before uploading seed media');
@@ -92,16 +97,21 @@ export async function repairBundledRealData() {
 async function repairBundledRealDataWithLock() {
   const records = loadRealFoodRecords();
   const prefix = normalizePrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
+  const expectedRestaurants = new Set(records.map((record) => realRestaurantLegacyKey(record.restaurant))).size;
   const before = await realDataState(records, prefix);
+  const revisionApplied = await realDataRevisionApplied();
 
   // Converge metadata when this deploy adds checked-in records or repairs the
   // original import. Once complete, normal restarts stay read-only so an
   // administrator's later tag and alias choices are not reintroduced.
-  const needsMetadata = before.imported !== records.length
+  const needsMetadata = !revisionApplied
+    || before.imported !== records.length
+    || before.importedRestaurants !== expectedRestaurants
     || before.legacyTaxonomy > 0
     || before.taxonomyMismatches > 0
     || before.canonicalNameMismatches > 0
-    || before.missingRestaurantCoordinates > 0;
+    || before.missingRestaurantCoordinates > 0
+    || before.versionRestaurantMismatches > 0;
   const metadata = needsMetadata
     ? await seedDatabase({ includeMedia: false, includeUsers: false })
     : undefined;
@@ -110,9 +120,16 @@ async function repairBundledRealDataWithLock() {
   if (current.imported !== records.length) {
     throw new Error(`Real data repair imported ${current.imported} of ${records.length} expected versions`);
   }
+  if (current.importedRestaurants !== expectedRestaurants) {
+    throw new Error(`Real data repair imported ${current.importedRestaurants} of ${expectedRestaurants} expected restaurants`);
+  }
   if (current.missingRestaurantCoordinates > 0) {
     throw new Error(`Real data repair left ${current.missingRestaurantCoordinates} imported restaurants without coordinates`);
   }
+  if (current.versionRestaurantMismatches > 0) {
+    throw new Error(`Real data repair left ${current.versionRestaurantMismatches} versions linked to the wrong restaurant`);
+  }
+  if (metadata && !revisionApplied) await markRealDataRevisionApplied();
   const storageConfigured = isStorageConfigured();
   const missingObjects = storageConfigured
     ? await findMissingObjects(records, prefix)
@@ -175,6 +192,25 @@ async function repairBundledRealDataWithLock() {
     storageVerified: true,
     missingObjects,
   };
+}
+
+async function realDataRevisionApplied() {
+  const result = await query<{ applied: boolean }>(
+    'SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = $1) AS applied',
+    [REAL_DATA_REVISION],
+  );
+  return result.rows[0]?.applied ?? false;
+}
+
+async function markRealDataRevisionApplied() {
+  await query(
+    `
+      INSERT INTO schema_migrations (version, checksum, applied_at)
+      VALUES ($1, $2, now())
+      ON CONFLICT (version) DO NOTHING
+    `,
+    [REAL_DATA_REVISION, REAL_DATA_REVISION_CHECKSUM],
+  );
 }
 
 async function repairBundledRestaurantCovers(
@@ -345,12 +381,14 @@ async function realDataState(
   const restaurantKeys = [...new Set(records.map((record) => realRestaurantLegacyKey(record.restaurant)))];
   const result = await query<{
     imported: string;
+    imported_restaurants: string;
     exact_media_links: string;
     visible_media_links: string;
     legacy_taxonomy: string;
     taxonomy_mismatches: string;
     canonical_name_mismatches: string;
     missing_restaurant_coordinates: string;
+    version_restaurant_mismatches: string;
   }>(
     `
       WITH expected_versions(version_key, media_key, object_key) AS (
@@ -359,10 +397,14 @@ async function realDataState(
         SELECT * FROM unnest($4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
       ), expected_restaurants(restaurant_key) AS (
         SELECT * FROM unnest($9::text[])
+      ), expected_version_restaurants(version_key, restaurant_key) AS (
+        SELECT * FROM unnest($1::text[], $10::text[])
       )
       SELECT
         (SELECT count(*) FROM expected_versions expected
           JOIN dish_versions version ON version.legacy_key = expected.version_key)::text AS imported,
+        (SELECT count(*) FROM expected_restaurants expected
+          JOIN restaurants restaurant ON restaurant.legacy_key = expected.restaurant_key)::text AS imported_restaurants,
         (SELECT count(*) FROM expected_versions expected
           JOIN dish_versions version ON version.legacy_key = expected.version_key
           JOIN version_media link ON link.version_id = version.id
@@ -391,9 +433,15 @@ async function realDataState(
           WHERE dish.source = 'real_import'
             AND dish.canonical_name IS DISTINCT FROM expected.canonical_name)::text AS canonical_name_mismatches,
         (SELECT count(*) FROM expected_restaurants expected
-          JOIN restaurants restaurant ON restaurant.legacy_key = expected.restaurant_key
-          WHERE restaurant.source = 'real_import'
-            AND (restaurant.latitude IS NULL OR restaurant.longitude IS NULL))::text AS missing_restaurant_coordinates
+          LEFT JOIN restaurants restaurant ON restaurant.legacy_key = expected.restaurant_key
+          WHERE restaurant.id IS NULL
+            OR restaurant.source <> 'real_import'
+            OR restaurant.latitude IS NULL
+            OR restaurant.longitude IS NULL)::text AS missing_restaurant_coordinates,
+        (SELECT count(*) FROM expected_version_restaurants expected
+          LEFT JOIN dish_versions version ON version.legacy_key = expected.version_key
+          LEFT JOIN restaurants restaurant ON restaurant.id = version.restaurant_id
+          WHERE restaurant.legacy_key IS DISTINCT FROM expected.restaurant_key)::text AS version_restaurant_mismatches
     `,
     [
       records.map((record) => `${record.id}-v1`),
@@ -405,16 +453,19 @@ async function realDataState(
       dishes.map(([, metadata]) => metadata.dishType),
       dishes.map(([, metadata]) => metadata.category),
       restaurantKeys,
+      records.map((record) => realRestaurantLegacyKey(record.restaurant)),
     ],
   );
   return {
     imported: Number.parseInt(result.rows[0]?.imported ?? '0', 10),
+    importedRestaurants: Number.parseInt(result.rows[0]?.imported_restaurants ?? '0', 10),
     exactMediaLinks: Number.parseInt(result.rows[0]?.exact_media_links ?? '0', 10),
     visibleMediaLinks: Number.parseInt(result.rows[0]?.visible_media_links ?? '0', 10),
     legacyTaxonomy: Number.parseInt(result.rows[0]?.legacy_taxonomy ?? '0', 10),
     taxonomyMismatches: Number.parseInt(result.rows[0]?.taxonomy_mismatches ?? '0', 10),
     canonicalNameMismatches: Number.parseInt(result.rows[0]?.canonical_name_mismatches ?? '0', 10),
     missingRestaurantCoordinates: Number.parseInt(result.rows[0]?.missing_restaurant_coordinates ?? '0', 10),
+    versionRestaurantMismatches: Number.parseInt(result.rows[0]?.version_restaurant_mismatches ?? '0', 10),
   };
 }
 

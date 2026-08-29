@@ -67,6 +67,458 @@ export type SeedOptions = {
   includeUsers?: boolean;
 };
 
+type CuratedRestaurantCorrection = {
+  expected: {
+    name: string;
+    address: string;
+    area: string;
+    phone: string | null;
+    latitude: number;
+    longitude: number;
+    hours: string;
+  };
+  next: {
+    name: string;
+    address: string;
+    area: string;
+    phone: string | null;
+    latitude: number;
+    longitude: number;
+    hours: string;
+  };
+};
+
+type CuratedVersionCorrection = {
+  legacyKey: string;
+  expectedMenuName: string;
+  expectedPrice: number;
+  menuName: string;
+  price: number;
+};
+
+const curatedRestaurantCorrections: CuratedRestaurantCorrection[] = [
+  {
+    expected: {
+      name: 'KOKORO TOKYO MAZESOBA – Sydney',
+      address: '225 George St, The Rocks NSW 2000',
+      area: 'The Rocks',
+      phone: '+61 2 9749 7130',
+      latitude: -33.8645,
+      longitude: 151.2064,
+      hours: 'Mon–Thu 11:30–14:30 / 17:00–21:00；Fri 11:30–14:30 / 17:00–22:00；Sat 11:30–22:00',
+    },
+    next: {
+      name: 'KOKORO TOKYO MAZESOBA – Sydney',
+      address: 'T03, 225 George Street North Forecourt, Grosvenor Place, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: '+61 468 328 661',
+      latitude: -33.8645,
+      longitude: 151.2064,
+      hours: 'Mon–Thu 11:30–14:30 / 17:00–21:00; Fri–Sat 11:30–14:30 / 17:00–22:00; Sun Closed',
+    },
+  },
+  {
+    expected: {
+      name: '1915 Lanzhou Beef Noodles',
+      address: 'Shop 13, 11–13 Hay St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8798,
+      longitude: 151.2046,
+      hours: 'Daily 11:00–21:30',
+    },
+    next: {
+      name: '1915 Lanzhou Beef Noodles',
+      address: 'Shop 1, 815–825 George St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8828583,
+      longitude: 151.2036874,
+      hours: 'Daily 11:00–21:00',
+    },
+  },
+  {
+    expected: {
+      name: 'Jinweide Beef Noodles',
+      address: 'Shop 3, 743–755 George St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8791,
+      longitude: 151.2053,
+      hours: 'Daily 10:30–21:30',
+    },
+    next: {
+      name: 'Jinweide Lanzhou Beef Noodles',
+      address: 'Shop 8, 258–264 Burwood Rd, Burwood NSW 2134',
+      area: 'Burwood',
+      phone: '(02) 9360 0171',
+      latitude: -33.8804688,
+      longitude: 151.1034623,
+      hours: 'Daily 11:00–22:00',
+    },
+  },
+  {
+    expected: {
+      name: 'Lin Lin Taiwanese Cuisine',
+      address: 'Shop 7, 10 Dixon St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8778,
+      longitude: 151.2038,
+      hours: 'Daily 11:00–21:00',
+    },
+    next: {
+      name: "Mother Chu's Taiwanese Gourmet",
+      address: 'Shop 1, 86–88 Dixon St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8791409,
+      longitude: 151.2042991,
+      hours: 'Sun–Thu 09:00–20:00; Fri–Sat 09:00–20:30',
+    },
+  },
+  {
+    expected: {
+      name: 'TW YES',
+      address: 'Shop 11, 1 Dixon St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: null,
+      latitude: -33.8759,
+      longitude: 151.2047,
+      hours: 'Mon–Sat 11:30–21:00; Sun 11:30–20:30',
+    },
+    next: {
+      name: 'Linla',
+      address: '413 Bourke St, Surry Hills NSW 2010',
+      area: 'Surry Hills',
+      phone: '(02) 3820 5694',
+      latitude: -33.88206145,
+      longitude: 151.2162016,
+      hours: 'Tue–Sat 17:30–01:00; Sun–Mon Closed',
+    },
+  },
+  {
+    expected: {
+      name: 'Chinese Noodle Restaurant',
+      address: 'Shop 7, 8 Quay St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8835,
+      longitude: 151.2018,
+      hours: 'Daily 11:00–21:00',
+    },
+    next: {
+      name: 'QG13 Chinatown Noodle Restaurant',
+      address: 'QG13/8 Quay St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8810376,
+      longitude: 151.2031077,
+      hours: 'Daily 10:00–15:00, 17:00–20:30',
+    },
+  },
+  {
+    expected: {
+      name: 'Zhang Liang Malatang',
+      address: 'Shop 10, 8–10 Dixon St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8777,
+      longitude: 151.2039,
+      hours: 'Daily 11:00–23:00',
+    },
+    next: {
+      name: 'Zhang Liang Malatang Haymarket',
+      address: 'Shop 1B & 1C/718 George St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: '0448 888 106',
+      latitude: -33.878664,
+      longitude: 151.206036,
+      hours: 'Daily 11:00–23:30',
+    },
+  },
+  {
+    expected: {
+      name: 'Yang Guo Fu Malatang',
+      address: '127 Burwood Rd, Burwood NSW 2134',
+      area: 'Burwood',
+      phone: null,
+      latitude: -33.8766,
+      longitude: 151.1039,
+      hours: 'Daily 11:00–22:30',
+    },
+    next: {
+      name: 'YangGuoFu Malatang Burwood',
+      address: '45 Burwood Rd, Burwood NSW 2134',
+      area: 'Burwood',
+      phone: '0424 122 212',
+      latitude: -33.8747896,
+      longitude: 151.1039287,
+      hours: 'Daily 10:30–23:30',
+    },
+  },
+  {
+    expected: {
+      name: 'Kowloon Cafe',
+      address: '84 Dixon St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8793,
+      longitude: 151.2037,
+      hours: 'Daily 11:00–22:00',
+    },
+    next: {
+      name: 'Kowloon Cafe',
+      address: 'Shop 7A–9A/421–429 Sussex St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8792724,
+      longitude: 151.204449,
+      hours: 'Daily 11:30–21:00',
+    },
+  },
+  {
+    expected: {
+      name: 'DOPA Donburi and Milk Bar',
+      address: 'Shop 5, 12–14 Steam Mill Lane, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.8795,
+      longitude: 151.2019,
+      hours: 'Daily 11:30–21:30',
+    },
+    next: {
+      name: 'DOPA Donburi & Dessert',
+      address: 'Shop 5/6, 2 Little Hay St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: '0483 210 779',
+      latitude: -33.8784749,
+      longitude: 151.202973,
+      hours: 'Mon–Thu 11:30–21:30; Fri–Sat 11:30–22:00; Sun 11:30–21:00',
+    },
+  },
+  {
+    expected: {
+      name: 'Gumshara Ramen',
+      address: 'Eating World, 25–29 Dixon St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: null,
+      latitude: -33.879,
+      longitude: 151.2039,
+      hours: 'Wed–Mon 11:30–15:00 / 17:00–20:30; Tue Closed',
+    },
+    next: {
+      name: 'Gumshara',
+      address: '9 Kimber Lane, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: '0405 557 104',
+      latitude: -33.8788096,
+      longitude: 151.2036941,
+      hours: 'Mon Closed; Tue–Wed 17:00–22:30; Thu–Sun 11:30–15:00, 17:00–22:30',
+    },
+  },
+  {
+    expected: {
+      name: 'Arisun Express',
+      address: 'Shop 35, 1 Dixon St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: null,
+      latitude: -33.876,
+      longitude: 151.2046,
+      hours: 'Daily 11:30–22:00',
+    },
+    next: {
+      name: 'NUGU',
+      address: 'Regent Place, 501 George St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: '(02) 9267 5918',
+      latitude: -33.8746213,
+      longitude: 151.2061441,
+      hours: 'Sun–Wed 12:00–21:00; Thu–Sat 12:00–21:30',
+    },
+  },
+  {
+    expected: {
+      name: 'Chicken V Eastwood',
+      address: '202 Rowe St, Eastwood NSW 2122',
+      area: 'Eastwood',
+      phone: null,
+      latitude: -33.7912,
+      longitude: 151.0804,
+      hours: 'Daily 11:30–23:00',
+    },
+    next: {
+      name: 'Basax Korean Chicken and Dining',
+      address: '415 Pitt St, Haymarket NSW 2000',
+      area: 'Haymarket',
+      phone: '0475 758 282',
+      latitude: -33.8784521,
+      longitude: 151.2070502,
+      hours: 'Mon–Thu 12:00–15:00, 17:00–23:00; Fri–Sat 12:00–00:00; Sun Closed',
+    },
+  },
+  {
+    expected: {
+      name: 'Malay Chinese Takeaway',
+      address: 'Shop 1, 50–58 Hunter St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: null,
+      latitude: -33.8662,
+      longitude: 151.2096,
+      hours: 'Mon–Fri 11:00–19:30; Weekend Closed',
+    },
+    next: {
+      name: 'Malay Chinese Noodle Bar',
+      address: 'Shop CQT06, 33 Pitt St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: '0401607168',
+      latitude: -33.862338,
+      longitude: 151.2085805,
+      hours: 'Mon–Fri 11:00–16:00; Sat–Sun Closed',
+    },
+  },
+  {
+    expected: {
+      name: "Alberto's Lounge",
+      address: '17–19 Alberta St, Sydney NSW 2000',
+      area: 'Sydney CBD',
+      phone: null,
+      latitude: -33.8786,
+      longitude: 151.2085,
+      hours: 'Tue–Sat 17:00–00:00; Sun–Mon Closed',
+    },
+    next: {
+      name: 'Fratelli Paradiso',
+      address: '12–16 Challis Ave, Potts Point NSW 2011',
+      area: 'Potts Point',
+      phone: null,
+      latitude: -33.8688512,
+      longitude: 151.2252177,
+      hours: 'Daily 12:00–Late',
+    },
+  },
+  {
+    expected: {
+      name: 'Il Baretto',
+      address: '496 Bourke St, Surry Hills NSW 2010',
+      area: 'Surry Hills',
+      phone: null,
+      latitude: -33.8857,
+      longitude: 151.2162,
+      hours: 'Tue–Sun 17:30–22:00; Mon Closed',
+    },
+    next: {
+      name: 'Il Baretto',
+      address: '365 King St, Newtown NSW 2042',
+      area: 'Newtown',
+      phone: '0408987042',
+      latitude: -33.8988877,
+      longitude: 151.1775738,
+      hours: 'Daily 12:00–Late',
+    },
+  },
+  {
+    expected: {
+      name: 'Gigi Pizzeria',
+      address: '379 King St, Newtown NSW 2042',
+      area: 'Newtown',
+      phone: null,
+      latitude: -33.8987,
+      longitude: 151.1775,
+      hours: 'Daily 17:00–22:30',
+    },
+    next: {
+      name: 'Rosso Antico Pizza Bar',
+      address: 'Shop 2, 52–60 Enmore Rd, Newtown NSW 2042',
+      area: 'Newtown',
+      phone: '(02) 8065 4224',
+      latitude: -33.8987016,
+      longitude: 151.1762222,
+      hours: 'Tue–Sun 18:00–22:00; Mon Closed',
+    },
+  },
+];
+
+const curatedVersionCorrections: CuratedVersionCorrection[] = [
+  {
+    legacyKey: 'real-sydney-braised-pork-rice-1-v1',
+    expectedMenuName: 'Taiwanese Braised Pork Rice',
+    expectedPrice: 15.5,
+    menuName: 'Ground Pork Mince Sauce and Rice',
+    price: 16.65,
+  },
+  {
+    legacyKey: 'real-sydney-braised-pork-rice-2-v1',
+    expectedMenuName: 'Signature Braised Pork Belly on Rice',
+    expectedPrice: 17.9,
+    menuName: 'Underground Lu Rou Fan',
+    price: 17.9,
+  },
+  {
+    legacyKey: 'real-sydney-dumplings-2-v1',
+    expectedMenuName: 'Pan-Fried Pork & Chive Dumplings',
+    expectedPrice: 13.5,
+    menuName: 'Prawn Dumplings',
+    price: 10.8,
+  },
+  {
+    legacyKey: 'real-sydney-gyudon-2-v1',
+    expectedMenuName: 'Onsen Egg Gyudon',
+    expectedPrice: 17.5,
+    menuName: 'Angus Beef Don',
+    price: 24.7,
+  },
+  {
+    legacyKey: 'real-sydney-bibimbap-1-v1',
+    expectedMenuName: 'Beef Stone Pot Bibimbap',
+    expectedPrice: 21,
+    menuName: 'Bibimbap',
+    price: 21,
+  },
+  {
+    legacyKey: 'real-sydney-korean-fried-chicken-1-v1',
+    expectedMenuName: 'Original Korean Fried Chicken',
+    expectedPrice: 24,
+    menuName: 'Boneless Fried Chicken',
+    price: 22.9,
+  },
+  {
+    legacyKey: 'real-sydney-carbonara-1-v1',
+    expectedMenuName: 'Rigatoni alla Carbonara',
+    expectedPrice: 27,
+    menuName: 'Rigatoni alla Carbonara',
+    price: 38,
+  },
+  {
+    legacyKey: 'real-sydney-carbonara-2-v1',
+    expectedMenuName: 'Rigatoni Carbonara',
+    expectedPrice: 26,
+    menuName: 'Rigatoni Carbonara',
+    price: 24,
+  },
+  {
+    legacyKey: 'real-sydney-bolognese-1-v1',
+    expectedMenuName: 'Spaghetti Bolognese',
+    expectedPrice: 25,
+    menuName: 'Spaghetti Bolognese',
+    price: 24,
+  },
+  {
+    legacyKey: 'real-sydney-pesto-pasta-1-v1',
+    expectedMenuName: 'Penne Pesto',
+    expectedPrice: 24,
+    menuName: 'Penne Pesto',
+    price: 21,
+  },
+  {
+    legacyKey: 'real-sydney-margherita-pizza-2-v1',
+    expectedMenuName: 'Pizza Margherita',
+    expectedPrice: 22,
+    menuName: 'Margherita',
+    price: 22,
+  },
+];
+
 /**
  * Seeds the checked-in real food records. It is safe to run repeatedly:
  * imported items are keyed by legacy_key and existing admin edits win.
@@ -84,6 +536,9 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
   const objectPrefix = normalizeObjectPrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
 
   return withTransaction(async (client) => {
+    await applyCuratedRestaurantCorrections(client);
+    await applyCuratedVersionCorrections(client);
+
     const dishIds = new Map<string, string>();
     const restaurantIds = new Map<string, string>();
     const versionIds = new Map<string, string>();
@@ -196,6 +651,101 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
       users: usersSeeded,
     };
   });
+}
+
+async function applyCuratedRestaurantCorrections(client: PoolClient): Promise<void> {
+  for (const correction of curatedRestaurantCorrections) {
+    const expected = correction.expected;
+    const next = correction.next;
+    const previousLegacyKey = realRestaurantLegacyKey(expected.name);
+    const nextLegacyKey = realRestaurantLegacyKey(next.name);
+    const nextSlug = slugify(next.name);
+    const result = await client.query<{ id: string }>(
+      `
+        UPDATE restaurants AS restaurant
+        SET legacy_key = $9,
+            slug = $10,
+            name = CASE WHEN restaurant.name IS NOT DISTINCT FROM $2 THEN $11 ELSE restaurant.name END,
+            address = CASE WHEN restaurant.address IS NOT DISTINCT FROM $3 THEN $12 ELSE restaurant.address END,
+            suburb = CASE WHEN restaurant.suburb IS NOT DISTINCT FROM $4 THEN $13 ELSE restaurant.suburb END,
+            phone = CASE WHEN restaurant.phone IS NOT DISTINCT FROM $5 THEN $14 ELSE restaurant.phone END,
+            latitude = CASE WHEN restaurant.latitude IS NOT DISTINCT FROM $6 THEN $15 ELSE restaurant.latitude END,
+            longitude = CASE WHEN restaurant.longitude IS NOT DISTINCT FROM $7 THEN $16 ELSE restaurant.longitude END,
+            hours_text = CASE WHEN restaurant.hours_text IS NOT DISTINCT FROM $8 THEN $17 ELSE restaurant.hours_text END
+        WHERE restaurant.source = 'real_import'
+          AND restaurant.legacy_key = $1
+          AND NOT EXISTS (
+            SELECT 1
+            FROM restaurants conflict
+            WHERE conflict.id <> restaurant.id
+              AND (
+                conflict.legacy_key = $9
+                OR conflict.slug = $10
+                OR (
+                  lower(conflict.name) = lower($11)
+                  AND lower(COALESCE(conflict.address, '')) = lower($12)
+                  AND conflict.status <> 'archived'
+                )
+              )
+          )
+        RETURNING restaurant.id
+      `,
+      [
+        previousLegacyKey,
+        expected.name,
+        expected.address,
+        expected.area,
+        expected.phone,
+        expected.latitude,
+        expected.longitude,
+        expected.hours,
+        nextLegacyKey,
+        nextSlug,
+        next.name,
+        next.address,
+        next.area,
+        next.phone,
+        next.latitude,
+        next.longitude,
+        next.hours,
+      ],
+    );
+    if ((result.rowCount ?? 0) === 0) {
+      const previous = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+          SELECT 1 FROM restaurants
+          WHERE source = 'real_import' AND legacy_key = $1
+        ) AS exists`,
+        [previousLegacyKey],
+      );
+      if (previous.rows[0]?.exists) {
+        throw new Error(`Restaurant correction for ${expected.name} conflicts with an existing target identity`);
+      }
+    }
+  }
+}
+
+async function applyCuratedVersionCorrections(client: PoolClient): Promise<void> {
+  for (const correction of curatedVersionCorrections) {
+    await client.query(
+      `
+        UPDATE dish_versions
+        SET menu_name = $4,
+            listed_price = $5
+        WHERE source = 'real_import'
+          AND legacy_key = $1
+          AND menu_name = $2
+          AND listed_price = $3
+      `,
+      [
+        correction.legacyKey,
+        correction.expectedMenuName,
+        correction.expectedPrice,
+        correction.menuName,
+        correction.price,
+      ],
+    );
+  }
 }
 
 async function seedDish(client: PoolClient, record: RealFoodRecord): Promise<string> {
