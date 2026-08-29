@@ -37,6 +37,9 @@ yarn-error.*
 server/.env*
 .npmrc
 
+# local-only design references
+.local-references/
+
 # private credentials and signing material
 *.keystore
 credentials*.json
