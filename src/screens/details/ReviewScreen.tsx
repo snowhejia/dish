@@ -15,14 +15,17 @@ import { Dishy } from '@/components/brand';
 import { CheckIcon, PencilIcon, PlusIcon, XIcon } from '@/components/icons';
 import {
   ActionButton,
+  CatalogEntityState,
   DetailHeader,
   DetailScreen,
   FoodImage,
   PixelEyebrow,
   StickyFooter,
 } from '@/components/details';
-import { foodImages } from '@/data/images';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import { versionById, versionMenuName } from '@/data/mockData';
+import { apiErrorMessage } from '@/lib/api';
+import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes } from '@/theme/tokens';
 
 export type ReviewVerdict = 'YES' | 'NO';
@@ -31,7 +34,7 @@ export type ReviewSubmission = {
   versionId: string;
   verdict: ReviewVerdict;
   text?: string;
-  photoUri?: string;
+  photo?: { uri: string; name?: string; type?: string } | File;
   pricePaid?: number;
 };
 
@@ -42,36 +45,82 @@ export type ReviewScreenProps = {
 };
 
 export function ReviewScreen({
-  versionId = 'beef-xian',
+  versionId,
   onBack,
   onPostReview,
 }: ReviewScreenProps) {
+  const { error: catalogError, loading, refreshCatalog } = useCatalog();
   const version = versionById(versionId);
   const [verdict, setVerdict] = useState<ReviewVerdict>();
   const [reviewText, setReviewText] = useState('');
-  const [pricePaid, setPricePaid] = useState('16.80');
+  const [pricePaid, setPricePaid] = useState(() => version?.price.toFixed(2) ?? '');
   const [photoUri, setPhotoUri] = useState<string>();
+  const [photo, setPhoto] = useState<{ uri: string; name?: string; type?: string } | File>();
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string>();
 
   const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.9,
-    });
-    if (!result.canceled) setPhotoUri(result.assets[0]?.uri);
+    setError(undefined);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        quality: 0.9,
+      });
+      if (!result.canceled) {
+        const asset = result.assets[0];
+        if (asset) {
+          setPhotoUri(asset.uri);
+          setPhoto(asset.file ?? {
+            uri: asset.uri,
+            name: asset.fileName ?? undefined,
+            type: asset.mimeType,
+          });
+        }
+      }
+    } catch (pickError) {
+      setError(apiErrorMessage(pickError, 'Could not open your photo library.'));
+    }
   };
 
-  const submit = () => {
-    if (!verdict) return;
-    const parsedPrice = Number.parseFloat(pricePaid);
-    void onPostReview?.({
-      versionId: version.id,
-      verdict,
-      text: reviewText.trim() || undefined,
-      photoUri,
-      pricePaid: Number.isFinite(parsedPrice) ? parsedPrice : undefined,
-    });
+  const submit = async () => {
+    if (!version || !verdict || submitting) return;
+    const normalizedPrice = pricePaid.trim();
+    const parsedPrice = normalizedPrice ? Number(normalizedPrice) : undefined;
+    if (parsedPrice !== undefined && (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 10_000)) {
+      setError('Enter a price between $0 and $10,000, or leave it blank.');
+      return;
+    }
+
+    setSubmitting(true);
+    setError(undefined);
+    try {
+      if (!onPostReview) throw new Error('Review submission is not available.');
+      await onPostReview({
+        versionId: version.id,
+        verdict,
+        text: reviewText.trim() || undefined,
+        photo,
+        pricePaid: parsedPrice,
+      });
+    } catch (submitError) {
+      setError(apiErrorMessage(submitError, 'Could not post your review.'));
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (!version) {
+    return (
+      <CatalogEntityState
+        entity="dish version"
+        error={catalogError}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
 
   return (
     <DetailScreen>
@@ -84,7 +133,7 @@ export function ReviewScreen({
         >
           <View style={styles.versionSummary}>
             <View style={styles.summaryPhoto}>
-              <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
+              <FoodImage source={foodImages[version.id] ?? fallbackFoodImage} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
             </View>
             <View style={styles.summaryCopy}>
               <Text numberOfLines={1} style={styles.dishName}>{versionMenuName(version)}</Text>
@@ -155,16 +204,22 @@ export function ReviewScreen({
                 <PencilIcon size={16} color={colors.iconMuted} strokeWidth={1.8} />
               </View>
             </View>
+            {error ? (
+              <View accessibilityRole="alert" style={styles.errorCard}>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
 
         <StickyFooter>
           <ActionButton
+            disabled={!verdict || submitting}
             style={[styles.submit, !verdict && styles.submitDisabled]}
             textStyle={!verdict && styles.submitTextDisabled}
-            onPress={verdict ? submit : onBack}
+            onPress={() => void submit()}
           >
-            {verdict ? 'Post review' : 'Answer to continue'}
+            {submitting ? 'Posting…' : verdict ? 'Post review' : 'Answer to continue'}
           </ActionButton>
         </StickyFooter>
       </KeyboardAvoidingView>
@@ -392,6 +447,18 @@ const styles = StyleSheet.create({
   },
   submit: {
     flex: 1,
+  },
+  errorCard: {
+    backgroundColor: '#FFF0F0',
+    borderRadius: radii.control,
+    marginTop: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  errorText: {
+    color: '#A33232',
+    fontSize: 12.5,
+    lineHeight: 18,
   },
   submitDisabled: {
     backgroundColor: colors.disabledSurface,
