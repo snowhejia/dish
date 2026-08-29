@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackIcon, BookmarkIcon, ChevronRightIcon, DirectionsIcon, ReviewIcon } from '@/components/icons';
+import { Dishy } from '@/components/brand';
 import {
   ActionButton,
   CatalogEntityState,
@@ -181,6 +182,15 @@ export function VersionDetailScreen({
             {reviews.map((review, index) => (
               <View key={`${review.name}-${index}`} style={styles.reviewCard}>
                 <View style={styles.reviewTop}>
+                  <View style={styles.reviewAvatar}>
+                    {review.avatarUrl ? (
+                      <FoodImage
+                        accessibilityLabel={`${review.name}'s profile photo`}
+                        source={{ uri: review.avatarUrl }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    ) : <Dishy size={24} variant="neutral" />}
+                  </View>
                   <Text style={styles.reviewName}>{review.name}</Text>
                   <View style={[styles.verdict, review.yes ? styles.verdictYes : styles.verdictNo]}>
                     <Text style={[styles.verdictText, review.yes ? styles.verdictYesText : styles.verdictNoText]}>
@@ -442,8 +452,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  reviewAvatar: {
+    alignItems: 'center',
+    backgroundColor: colors.lavender,
+    borderRadius: radii.pill,
+    height: 32,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 32,
+  },
   reviewName: {
     color: colors.ink,
+    flex: 1,
     fontSize: 13.5,
     lineHeight: 17,
     fontWeight: '600',

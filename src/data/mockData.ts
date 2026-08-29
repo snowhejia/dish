@@ -44,6 +44,7 @@ export type Review = {
   text: string;
   pricePaid?: number | null;
   photoUrl?: string | null;
+  avatarUrl?: string | null;
   createdAt?: string;
 };
 

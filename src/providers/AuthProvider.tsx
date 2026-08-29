@@ -12,6 +12,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import { ApiError, api, setApiSessionToken } from '@/lib/api';
+import { appendImageUpload, type ImageUpload } from '@/lib/imageUpload';
 
 const SESSION_STORAGE_KEY = 'dish.auth.session.v1';
 
@@ -23,6 +24,7 @@ export type AuthUser = {
   campus: string | null;
   status?: string;
   createdAt?: string;
+  avatarUrl?: string | null;
   stats?: {
     reviews: number;
     photos: number;
@@ -60,6 +62,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
   updateProfile: (input: { displayName?: string; campus?: string | null }) => Promise<AuthUser>;
+  updateAvatar: (photo: Exclude<ImageUpload, null>) => Promise<AuthUser>;
 };
 
 type AuthResponse = {
@@ -184,6 +187,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response.user;
   }, [commitSession, session]);
 
+  const updateAvatar = useCallback(async (photo: Exclude<ImageUpload, null>) => {
+    if (!session) throw new Error('Sign in to update your profile photo.');
+    const requestToken = session.token;
+    const form = new FormData();
+    await appendImageUpload(form, 'avatar', photo, 'dish-avatar');
+    const response = await api.put<MeResponse>('/api/v1/me/avatar', form);
+    if (activeToken.current !== requestToken) throw new Error('Your session changed before the upload completed.');
+    await commitSession({ ...session, user: response.user });
+    return response.user;
+  }, [commitSession, session]);
+
   const value = useMemo<AuthContextValue>(() => ({
     status,
     session,
@@ -194,7 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     refreshUser,
     updateProfile,
-  }), [login, logout, refreshUser, register, session, status, updateProfile]);
+    updateAvatar,
+  }), [login, logout, refreshUser, register, session, status, updateAvatar, updateProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

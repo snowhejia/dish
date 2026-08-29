@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,9 +14,11 @@ import {
 } from 'react-native';
 
 import { Dishy } from '@/components/brand';
+import { CameraIcon } from '@/components/icons';
 import { ActionButton, DetailHeader, DetailScreen, PixelEyebrow } from '@/components/details';
 import { apiErrorMessage } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
+import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes, spacing, type } from '@/theme/tokens';
 
 export type AccountSettingsScreenProps = {
@@ -22,10 +27,12 @@ export type AccountSettingsScreenProps = {
 };
 
 export function AccountSettingsScreen({ onBack, onSignIn }: AccountSettingsScreenProps) {
-  const { status, updateProfile, user } = useAuth();
+  const { status, updateAvatar, updateProfile, user } = useAuth();
+  const { refreshCatalog } = useCatalog();
   const [displayName, setDisplayName] = useState(user?.displayName ?? '');
   const [campus, setCampus] = useState(user?.campus ?? '');
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
 
@@ -33,6 +40,36 @@ export function AccountSettingsScreen({ onBack, onSignIn }: AccountSettingsScree
     setDisplayName(user?.displayName ?? '');
     setCampus(user?.campus ?? '');
   }, [user?.campus, user?.displayName]);
+
+  const pickAvatar = async () => {
+    if (avatarUploading) return;
+    setSaved(false);
+    setError(undefined);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+      if (result.canceled) return;
+      const asset = result.assets[0];
+      if (!asset) return;
+
+      setAvatarUploading(true);
+      await updateAvatar(asset.file ?? {
+        uri: asset.uri,
+        name: asset.fileName ?? undefined,
+        type: asset.mimeType,
+      });
+      await refreshCatalog();
+      setSaved(true);
+    } catch (uploadError) {
+      setError(apiErrorMessage(uploadError, 'Could not update your profile photo.'));
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   const save = async () => {
     const normalizedName = displayName.trim();
@@ -79,6 +116,37 @@ export function AccountSettingsScreen({ onBack, onSignIn }: AccountSettingsScree
             showsVerticalScrollIndicator={false}
           >
             <PixelEyebrow>PROFILE</PixelEyebrow>
+            <Pressable
+              accessibilityHint="Choose a square photo from your library"
+              accessibilityLabel={user.avatarUrl ? 'Change profile photo' : 'Add profile photo'}
+              accessibilityRole="button"
+              disabled={avatarUploading}
+              onPress={() => void pickAvatar()}
+              style={({ pressed }) => [styles.avatarEditor, pressed && !avatarUploading && styles.pressed]}
+            >
+              <View style={styles.avatarPreview}>
+                {user.avatarUrl ? (
+                  <Image
+                    accessibilityLabel={`${user.displayName}'s profile photo`}
+                    contentFit="cover"
+                    source={{ uri: user.avatarUrl }}
+                    style={StyleSheet.absoluteFill}
+                    transition={0}
+                  />
+                ) : <Dishy size={50} variant="neutral" />}
+              </View>
+              <View style={styles.avatarCopy}>
+                <Text style={styles.avatarTitle}>
+                  {avatarUploading ? 'Uploading…' : user.avatarUrl ? 'Change photo' : 'Add a profile photo'}
+                </Text>
+                <Text style={styles.avatarHelp}>Shown with your reviews</Text>
+              </View>
+              <View style={styles.avatarAction}>
+                {avatarUploading
+                  ? <ActivityIndicator color={colors.purple} size="small" />
+                  : <CameraIcon color={colors.purple} size={18} strokeWidth={1.8} />}
+              </View>
+            </Pressable>
             <Text style={styles.label}>Display name</Text>
             <TextInput
               accessibilityLabel="Display name"
@@ -198,6 +266,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: sizes.pageGutter,
     paddingTop: spacing[20],
   },
+  avatarEditor: {
+    alignItems: 'center',
+    backgroundColor: colors.softSurface,
+    borderRadius: radii.card,
+    flexDirection: 'row',
+    gap: spacing[12],
+    marginTop: spacing[14],
+    padding: spacing[12],
+  },
+  avatarPreview: {
+    alignItems: 'center',
+    backgroundColor: colors.lavender,
+    borderRadius: radii.pill,
+    height: 72,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    width: 72,
+  },
+  avatarCopy: {
+    flex: 1,
+  },
+  avatarTitle: {
+    color: colors.ink,
+    fontSize: 14.5,
+    fontWeight: '600',
+    lineHeight: 19,
+  },
+  avatarHelp: {
+    ...type.caption,
+    color: colors.muted,
+    marginTop: spacing[3],
+  },
+  avatarAction: {
+    alignItems: 'center',
+    backgroundColor: colors.lavender,
+    borderRadius: radii.pill,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
   label: {
     color: colors.body,
     fontSize: 12,
@@ -275,5 +383,8 @@ const styles = StyleSheet.create({
   },
   save: {
     marginTop: spacing[18],
+  },
+  pressed: {
+    opacity: 0.74,
   },
 });

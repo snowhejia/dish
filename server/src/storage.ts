@@ -43,7 +43,7 @@ export function isStorageConfigured() {
 
 export async function uploadImage(
   file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
-  folder: 'versions' | 'reviews' | 'contributions' | 'restaurants' = 'versions',
+  folder: 'versions' | 'reviews' | 'contributions' | 'restaurants' | 'avatars' = 'versions',
 ): Promise<StoredObject> {
   if (!isStorageConfigured()) {
     throw Object.assign(new Error('Cloudflare R2 is not configured on the server.'), {

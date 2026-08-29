@@ -340,6 +340,11 @@ CREATE TABLE IF NOT EXISTS media (
   )
 );
 
+-- Keep one current avatar per account while retaining media metadata for
+-- replacement cleanup. This must be added after media exists.
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS avatar_media_id uuid REFERENCES media(id) ON DELETE SET NULL;
+
 CREATE TABLE IF NOT EXISTS version_media (
   version_id uuid NOT NULL REFERENCES dish_versions(id) ON DELETE CASCADE,
   media_id uuid NOT NULL REFERENCES media(id) ON DELETE CASCADE,

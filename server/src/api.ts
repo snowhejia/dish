@@ -138,6 +138,52 @@ router.patch('/me', requireUser, asyncHandler(async (request, response) => {
   response.json({ user: await userWithStats(mapUser(result.rows[0]!)) });
 }));
 
+router.put('/me/avatar', requireUser, upload.single('avatar'), asyncHandler(async (request, response) => {
+  if (!request.file) {
+    response.status(400).json({ error: { code: 'AVATAR_REQUIRED', message: 'Choose a profile photo to upload.' } });
+    return;
+  }
+
+  const stored = await uploadImage(request.file, 'avatars');
+  const previousObjectKey = await withUploadedImageCleanup(stored, () => withTransaction(async (client) => {
+    const previous = await client.query<{ media_id: string | null; object_key: string | null }>(
+      `SELECT u.avatar_media_id AS media_id, m.object_key
+       FROM users u
+       LEFT JOIN media m ON m.id = u.avatar_media_id
+       WHERE u.id = $1
+       FOR UPDATE OF u`,
+      [request.user!.id],
+    );
+    if (!previous.rows[0]) throw Object.assign(new Error('User not found.'), { status: 404, code: 'USER_NOT_FOUND' });
+
+    const media = await client.query<{ id: string }>(
+      `INSERT INTO media (
+         object_key, owner_user_id, purpose, status, mime_type, original_filename, byte_size, source
+       ) VALUES ($1, $2, 'avatar', 'approved', $3, $4, $5, 'user')
+       RETURNING id`,
+      [stored.key, request.user!.id, stored.mimeType, request.file?.originalname ?? null, stored.bytes],
+    );
+    const mediaId = media.rows[0]?.id;
+    if (!mediaId) throw new Error('Avatar media insert did not return an id.');
+
+    await client.query('UPDATE users SET avatar_media_id = $2 WHERE id = $1', [request.user!.id, mediaId]);
+    if (previous.rows[0].media_id) {
+      await client.query("UPDATE media SET status = 'hidden' WHERE id = $1", [previous.rows[0].media_id]);
+    }
+    return previous.rows[0].object_key;
+  }));
+
+  if (previousObjectKey && previousObjectKey !== stored.key) {
+    try {
+      await deleteImage(previousObjectKey);
+    } catch (cleanupError) {
+      console.error(`[storage] failed to remove replaced avatar ${previousObjectKey}`, cleanupError);
+    }
+  }
+
+  response.json({ user: await userWithStats(serializeAuthUser(request.user!)) });
+}));
+
 router.get('/catalog', asyncHandler(async (_request, response) => {
   response.json(await catalogSnapshot());
 }));
@@ -484,6 +530,7 @@ type ReviewDto = {
   text: string;
   pricePaid: number | null;
   photoUrl: string | null;
+  avatarUrl: string | null;
   createdAt: string;
 };
 type RestaurantDto = {
@@ -546,13 +593,17 @@ async function catalogSnapshot(): Promise<CatalogDto> {
     ),
     query<{
       id: string; version_id: string; name: string; yes: boolean; text: string | null;
-      price_paid: string | null; created_at: Date; object_key: string | null;
+      price_paid: string | null; created_at: Date; object_key: string | null; avatar_object_key: string | null;
     }>(
       `SELECT r.id, COALESCE(v.legacy_key, v.id::text) AS version_id,
               r.author_name_snapshot AS name, r.would_eat_again AS yes, r.body AS text,
-              r.price_paid, r.created_at, photo.object_key
+              r.price_paid, r.created_at, photo.object_key,
+              avatar.object_key AS avatar_object_key
        FROM reviews r
        JOIN dish_versions v ON v.id = r.version_id
+       LEFT JOIN users author ON author.id = r.user_id
+       LEFT JOIN media avatar ON avatar.id = author.avatar_media_id
+         AND avatar.purpose = 'avatar' AND avatar.status = 'approved'
        LEFT JOIN LATERAL (
          SELECT m.object_key FROM review_media rm JOIN media m ON m.id = rm.media_id
          WHERE rm.review_id = r.id AND m.status = 'approved' ORDER BY rm.sort_order LIMIT 1
@@ -606,6 +657,7 @@ async function catalogSnapshot(): Promise<CatalogDto> {
       text: row.text ?? '',
       pricePaid: row.price_paid == null ? null : Number(row.price_paid),
       photoUrl: publicMediaUrl(row.object_key),
+      avatarUrl: publicMediaUrl(row.avatar_object_key),
       createdAt: row.created_at.toISOString(),
     });
   });
@@ -696,17 +748,21 @@ async function userWithStats<User extends { id: string }>(user: User) {
     photos: string;
     versions_added: string;
     pending_contributions: string;
+    avatar_object_key: string | null;
   }>(
     `SELECT
        (SELECT count(*)::text FROM reviews WHERE user_id = $1) AS reviews,
-       (SELECT count(*)::text FROM media WHERE owner_user_id = $1 AND status = 'approved') AS photos,
+       (SELECT count(*)::text FROM media WHERE owner_user_id = $1 AND status = 'approved' AND purpose <> 'avatar') AS photos,
        (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'approved') AS versions_added,
-       (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'pending') AS pending_contributions`,
+       (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'pending') AS pending_contributions,
+       (SELECT m.object_key FROM users u JOIN media m ON m.id = u.avatar_media_id
+        WHERE u.id = $1 AND m.purpose = 'avatar' AND m.status = 'approved') AS avatar_object_key`,
     [user.id],
   );
   const stats = result.rows[0];
   return {
     ...user,
+    avatarUrl: publicMediaUrl(stats?.avatar_object_key),
     stats: {
       reviews: Number(stats?.reviews ?? 0),
       photos: Number(stats?.photos ?? 0),

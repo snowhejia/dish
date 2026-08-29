@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { Image } from 'expo-image';
 import { useFocusEffect, useIsFocused } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -104,7 +105,15 @@ export function ProfileScreen({
     >
       <View style={[styles.identity, { paddingTop: Math.max(58, insets.top + spacing[11]) }]}>
         <View style={styles.avatar}>
-          <Dishy size={46} variant="neutral" />
+          {user.avatarUrl ? (
+            <Image
+              accessibilityLabel={`${user.displayName}'s profile photo`}
+              contentFit="cover"
+              source={{ uri: user.avatarUrl }}
+              style={StyleSheet.absoluteFill}
+              transition={0}
+            />
+          ) : <Dishy size={46} variant="neutral" />}
         </View>
         <View style={styles.identityCopy}>
           <Text style={styles.name}>{user.displayName}</Text>
@@ -274,6 +283,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.large,
     height: 66,
     justifyContent: 'center',
+    overflow: 'hidden',
     width: 66,
   },
   identityCopy: {

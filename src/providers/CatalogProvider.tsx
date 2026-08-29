@@ -8,8 +8,6 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { Platform } from 'react-native';
-import { File as ExpoFile } from 'expo-file-system';
 
 import { foodImages } from '@/data/images';
 import {
@@ -20,6 +18,7 @@ import {
   type CatalogSnapshot,
 } from '@/data/mockData';
 import { API_BASE_URL, api, apiErrorMessage } from '@/lib/api';
+import { appendImageUpload, type ImageUpload } from '@/lib/imageUpload';
 import { useAuth } from '@/providers/AuthProvider';
 
 type SavedResponse = {
@@ -29,7 +28,7 @@ type SavedResponse = {
   savedVersions?: string[];
 };
 
-type UploadPhoto = { uri: string; name?: string; type?: string } | File | null;
+type UploadPhoto = ImageUpload;
 
 export type ReviewSubmission = {
   versionId: string;
@@ -179,7 +178,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     form.append('wouldEatAgain', String(input.yes));
     if (input.text?.trim()) form.append('text', input.text.trim());
     if (input.pricePaid !== undefined) form.append('pricePaid', String(input.pricePaid));
-    await appendPhoto(form, input.photo);
+    await appendImageUpload(form, 'photo', input.photo, 'dish-review');
     await api.post(`/api/v1/versions/${encodeURIComponent(input.versionId)}/reviews`, form);
     await Promise.all([refreshCatalog(), refreshUser()]);
   }, [isAuthenticated, refreshCatalog, refreshUser]);
@@ -195,7 +194,7 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     appendOptional(form, 'menuName', input.menuName);
     appendOptional(form, 'price', input.price);
     appendOptional(form, 'note', input.note);
-    await appendPhoto(form, input.photo);
+    await appendImageUpload(form, 'photo', input.photo, 'dish-version');
     const result = unwrap<{ id?: string; status?: string }>(await api.post('/api/v1/contributions', form));
     await refreshUser();
     return result;
@@ -251,31 +250,6 @@ function unwrap<T>(response: unknown): T {
 
 function appendOptional(form: FormData, key: string, value: string | number | undefined) {
   if (value !== undefined && String(value).trim()) form.append(key, String(value));
-}
-
-async function appendPhoto(form: FormData, photo: UploadPhoto | undefined) {
-  if (!photo) return;
-  if (typeof File !== 'undefined' && photo instanceof File) {
-    form.append('photo', photo);
-    return;
-  }
-  const upload = photo as Exclude<UploadPhoto, File | null>;
-  const name = upload.name ?? `dish-${Date.now()}.jpg`;
-  const type = upload.type;
-
-  if (Platform.OS === 'web') {
-    const response = await fetch(upload.uri);
-    if (!response.ok) throw new Error('Could not prepare the selected photo for upload.');
-    form.append('photo', await response.blob(), name);
-    return;
-  }
-
-  const file = new ExpoFile(upload.uri);
-  form.append('photo', {
-    name,
-    type: type || file.type || 'image/jpeg',
-    bytes: () => file.bytes(),
-  } as unknown as Blob);
 }
 
 function normalizeCatalogSnapshot(value: unknown): CatalogSnapshot {
