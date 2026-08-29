@@ -47,14 +47,15 @@ export type SeedOptions = {
  * Seeds the checked-in real food records. It is safe to run repeatedly:
  * imported items are keyed by legacy_key and existing admin edits win.
  *
- * Media metadata is only inserted when SEED_MEDIA_OBJECT_PREFIX is set (or
- * includeMedia is true). The matching files must already have been uploaded
- * to Cloudflare R2; this module intentionally contains no storage client.
+ * Media metadata is only inserted when includeMedia is true, or when the CLI
+ * is run with SEED_UPLOAD_MEDIA=true. The matching files must already have
+ * been uploaded to Cloudflare R2; this module intentionally contains no
+ * storage client.
  */
 export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSummary> {
   await ensureSchema();
   const records = loadRealFoodRecords();
-  const includeMedia = options.includeMedia ?? Boolean(process.env.SEED_MEDIA_OBJECT_PREFIX);
+  const includeMedia = options.includeMedia ?? process.env.SEED_UPLOAD_MEDIA === 'true';
   const objectPrefix = normalizeObjectPrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
 
   return withTransaction(async (client) => {

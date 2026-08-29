@@ -75,6 +75,8 @@ export function createApp() {
   app.use((request, response) => {
     if (request.path.startsWith('/api/')) {
       response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found.' } });
+    } else if (request.path.startsWith('/admin') && Boolean(request.accepts('html'))) {
+      sendAdminError(response, 404, 'That admin page does not exist.', randomUUID());
     } else {
       response.status(404).type('text').send('Not found');
     }
@@ -139,8 +141,34 @@ async function bootstrapAdmin() {
 }
 
 function errorHandler(error: unknown, request: Request, response: Response, _next: NextFunction) {
+  if (response.headersSent) {
+    _next(error);
+    return;
+  }
   const requestId = request.get('x-request-id') ?? randomUUID();
   console.error(`[request:${requestId}]`, error);
+
+  const typed = error as { code?: string; status?: number; message?: string; constraint?: string };
+  if (request.path.startsWith('/admin') && Boolean(request.accepts('html'))) {
+    const status = error instanceof z.ZodError || error instanceof multer.MulterError
+      ? 400
+      : typed.code === '23505'
+        ? 409
+        : Number.isInteger(typed.status) && typed.status! >= 400 && typed.status! < 600
+          ? typed.status!
+          : 500;
+    const message = error instanceof z.ZodError
+      ? error.issues[0]?.message ?? 'Invalid request.'
+      : error instanceof multer.MulterError
+        ? error.message
+        : status === 409
+          ? 'That record already exists.'
+          : status < 500
+            ? typed.message ?? 'Request failed.'
+            : 'The server could not complete this request.';
+    sendAdminError(response, status, message, requestId);
+    return;
+  }
 
   if (error instanceof z.ZodError) {
     response.status(400).json({
@@ -157,7 +185,6 @@ function errorHandler(error: unknown, request: Request, response: Response, _nex
     return;
   }
 
-  const typed = error as { code?: string; status?: number; message?: string; constraint?: string };
   if (typed.code === '23505') {
     response.status(409).json({ error: { code: 'ALREADY_EXISTS', message: 'That record already exists.' } });
     return;
@@ -170,6 +197,39 @@ function errorHandler(error: unknown, request: Request, response: Response, _nex
       requestId,
     },
   });
+}
+
+function sendAdminError(response: Response, status: number, message: string, requestId: string): void {
+  const title = status === 404 ? 'Not found' : status === 409 ? 'Could not save' : status < 500 ? 'Request failed' : 'Something went wrong';
+  response.status(status).type('html').send(`<!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex,nofollow">
+        <title>${escapeHtml(title)} · Dish. Admin</title>
+        <link rel="stylesheet" href="/admin/admin.css">
+      </head>
+      <body class="auth-page">
+        <main class="auth-card">
+          <div class="auth-brand">DISH. ADMIN</div>
+          <h1>${escapeHtml(title)}</h1>
+          <p>${escapeHtml(message)}</p>
+          <p class="subtitle">Request ID: ${escapeHtml(requestId)}</p>
+          <a class="button" href="/admin">Back to admin</a>
+        </main>
+      </body>
+    </html>`);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  })[character] ?? character);
 }
 
 function allowedOrigins() {

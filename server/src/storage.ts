@@ -32,22 +32,38 @@ export type StoredObject = {
 };
 
 export function isStorageConfigured() {
-  return Boolean(
-    process.env.R2_ACCOUNT_ID
-      && process.env.R2_ACCESS_KEY_ID
-      && process.env.R2_SECRET_ACCESS_KEY
-      && process.env.R2_BUCKET
-      && process.env.R2_PUBLIC_URL,
-  );
+  return [
+    'R2_ACCOUNT_ID',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+    'R2_BUCKET',
+    'R2_PUBLIC_URL',
+  ].every((name) => Boolean(process.env[name]?.trim()));
 }
 
 export async function uploadImage(
   file: { buffer: Buffer; mimetype: string; size: number; originalname?: string },
   folder: 'versions' | 'reviews' | 'contributions' = 'versions',
 ): Promise<StoredObject> {
+  if (!isStorageConfigured()) {
+    throw Object.assign(new Error('Cloudflare R2 is not configured on the server.'), {
+      status: 503,
+      code: 'STORAGE_NOT_CONFIGURED',
+    });
+  }
   const extension = allowedMimeTypes.get(file.mimetype);
-  if (!extension) throw new Error('Only JPEG, PNG, WebP, HEIC and HEIF images are supported');
-  if (!file.buffer.length || file.size > 10 * 1024 * 1024) throw new Error('Image must be between 1 byte and 10 MB');
+  if (!extension) {
+    throw Object.assign(new Error('Only JPEG, PNG, WebP, HEIC and HEIF images are supported'), {
+      status: 400,
+      code: 'UNSUPPORTED_IMAGE_TYPE',
+    });
+  }
+  if (!file.buffer.length || file.size > 10 * 1024 * 1024) {
+    throw Object.assign(new Error('Image must be between 1 byte and 10 MB'), {
+      status: 400,
+      code: 'INVALID_IMAGE_SIZE',
+    });
+  }
 
   const month = new Date().toISOString().slice(0, 7);
   const key = `${folder}/${month}/${randomUUID()}.${extension}`;

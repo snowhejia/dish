@@ -14,7 +14,7 @@ import {
   type AuthUser,
 } from './auth';
 import { query, withTransaction } from './db';
-import { isStorageConfigured, uploadImage } from './storage';
+import { deleteImage, isStorageConfigured, uploadImage } from './storage';
 
 const router = Router();
 const upload = multer({
@@ -23,7 +23,10 @@ const upload = multer({
   fileFilter: (_request, file, callback) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     if (allowed.includes(file.mimetype)) callback(null, true);
-    else callback(new Error('Unsupported image format'));
+    else callback(Object.assign(new Error('Unsupported image format'), {
+      status: 400,
+      code: 'UNSUPPORTED_IMAGE_TYPE',
+    }));
   },
 });
 
@@ -77,7 +80,7 @@ router.post('/auth/register', asyncHandler(async (request, response) => {
      RETURNING id, email::text, display_name, campus, role, status, created_at`,
     [input.email, passwordHash, input.displayName, input.campus ?? null],
   );
-  const user = mapUser(result.rows[0]!);
+  const user = await userWithStats(mapUser(result.rows[0]!));
   const session = await createSession(user.id, sessionMeta(request));
   setSessionCookie(response, session.token, session.expiresAt);
   response.status(201).json({ user, token: session.token, expiresAt: session.expiresAt.toISOString() });
@@ -96,7 +99,7 @@ router.post('/auth/login', asyncHandler(async (request, response) => {
     return;
   }
   await query('UPDATE users SET last_login_at = now() WHERE id = $1', [row.id]);
-  const user = mapUser(row);
+  const user = await userWithStats(mapUser(row));
   const session = await createSession(user.id, sessionMeta(request));
   setSessionCookie(response, session.token, session.expiresAt);
   response.json({ user, token: session.token, expiresAt: session.expiresAt.toISOString() });
@@ -109,13 +112,13 @@ router.post('/auth/logout', requireUser, asyncHandler(async (request, response) 
   response.status(204).end();
 }));
 
-router.get('/auth/session', requireUser, (request, response) => {
-  response.json({ user: serializeAuthUser(request.user!) });
-});
+router.get('/auth/session', requireUser, asyncHandler(async (request, response) => {
+  response.json({ user: await userWithStats(serializeAuthUser(request.user!)) });
+}));
 
-router.get('/me', requireUser, (request, response) => {
-  response.json({ user: serializeAuthUser(request.user!) });
-});
+router.get('/me', requireUser, asyncHandler(async (request, response) => {
+  response.json({ user: await userWithStats(serializeAuthUser(request.user!)) });
+}));
 
 router.patch('/me', requireUser, asyncHandler(async (request, response) => {
   const input = z.object({
@@ -132,7 +135,7 @@ router.patch('/me', requireUser, asyncHandler(async (request, response) => {
      RETURNING id, email::text, display_name, campus, role, status, created_at`,
     [request.user!.id, input.displayName ?? null, input.campus !== undefined, input.campus ?? null],
   );
-  response.json({ user: mapUser(result.rows[0]!) });
+  response.json({ user: await userWithStats(mapUser(result.rows[0]!)) });
 }));
 
 router.get('/catalog', asyncHandler(async (_request, response) => {
@@ -267,7 +270,7 @@ router.post('/versions/:id/reviews', requireUser, upload.single('photo'), asyncH
   if (!versionId) return notFound(response, 'Version');
 
   const stored = request.file ? await storeRequiredImage(request.file, 'reviews') : null;
-  const reviewId = await withTransaction(async (client) => {
+  const reviewId = await withUploadedImageCleanup(stored, () => withTransaction(async (client) => {
     const reviewResult = await client.query<{ id: string }>(
       `INSERT INTO reviews (
          version_id, user_id, author_name_snapshot, would_eat_again, body, price_paid, status, source
@@ -293,7 +296,7 @@ router.post('/versions/:id/reviews', requireUser, upload.single('photo'), asyncH
       await client.query('INSERT INTO review_media (review_id, media_id, sort_order) VALUES ($1, $2, 0)', [id, mediaResult.rows[0]!.id]);
     }
     return id;
-  });
+  }));
   response.status(201).json({ id: reviewId, status: 'published' });
 }));
 
@@ -338,7 +341,7 @@ router.post('/contributions', requireUser, upload.single('photo'), asyncHandler(
   if (input.restaurantId && !restaurantId) return notFound(response, 'Restaurant');
 
   const stored = request.file ? await storeRequiredImage(request.file, 'contributions') : null;
-  const id = await withTransaction(async (client) => {
+  const id = await withUploadedImageCleanup(stored, () => withTransaction(async (client) => {
     let resolvedDishId = dishId;
     if (!resolvedDishId && input.newDishName) {
       const slug = await uniqueSlug(client, 'dishes', input.newDishName);
@@ -364,7 +367,7 @@ router.post('/contributions', requireUser, upload.single('photo'), asyncHandler(
         input.newRestaurantAddress ?? null,
         input.menuName ?? null,
         input.price ?? null,
-        input.wouldEatAgain ?? true,
+        input.wouldEatAgain ?? null,
         input.note ?? null,
       ],
     );
@@ -379,7 +382,7 @@ router.post('/contributions', requireUser, upload.single('photo'), asyncHandler(
       await client.query('INSERT INTO contribution_media (contribution_id, media_id, sort_order) VALUES ($1, $2, 0)', [contributionId, media.rows[0]!.id]);
     }
     return contributionId;
-  });
+  }));
   response.status(201).json({ id, status: 'pending' });
 }));
 
@@ -625,6 +628,24 @@ async function storeRequiredImage(file: Express.Multer.File, folder: 'reviews' |
   return uploadImage(file, folder);
 }
 
+async function withUploadedImageCleanup<Result>(
+  stored: { key: string } | null,
+  action: () => Promise<Result>,
+): Promise<Result> {
+  try {
+    return await action();
+  } catch (error) {
+    if (stored) {
+      try {
+        await deleteImage(stored.key);
+      } catch (cleanupError) {
+        console.error(`[storage] failed to remove orphaned upload ${stored.key}`, cleanupError);
+      }
+    }
+    throw error;
+  }
+}
+
 function publicMediaUrl(objectKey: string | null | undefined): string | null {
   if (!objectKey || !process.env.R2_PUBLIC_URL) return null;
   return `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${objectKey}`;
@@ -651,6 +672,32 @@ function serializeAuthUser(user: AuthUser) {
     status: user.status,
     campus: user.campus,
     createdAt: user.createdAt.toISOString(),
+  };
+}
+
+async function userWithStats<User extends { id: string }>(user: User) {
+  const result = await query<{
+    reviews: string;
+    photos: string;
+    versions_added: string;
+    pending_contributions: string;
+  }>(
+    `SELECT
+       (SELECT count(*)::text FROM reviews WHERE user_id = $1) AS reviews,
+       (SELECT count(*)::text FROM media WHERE owner_user_id = $1 AND status = 'approved') AS photos,
+       (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'approved') AS versions_added,
+       (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'pending') AS pending_contributions`,
+    [user.id],
+  );
+  const stats = result.rows[0];
+  return {
+    ...user,
+    stats: {
+      reviews: Number(stats?.reviews ?? 0),
+      photos: Number(stats?.photos ?? 0),
+      versionsAdded: Number(stats?.versions_added ?? 0),
+      pendingContributions: Number(stats?.pending_contributions ?? 0),
+    },
   };
 }
 

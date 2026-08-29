@@ -251,7 +251,7 @@ CREATE TABLE IF NOT EXISTS contributions (
   proposed_restaurant_address text,
   proposed_menu_name text,
   price_paid numeric(10,2),
-  would_eat_again boolean NOT NULL,
+  would_eat_again boolean,
   notes text,
   status text NOT NULL DEFAULT 'pending',
   resulting_version_id uuid REFERENCES dish_versions(id) ON DELETE RESTRICT,
@@ -278,6 +278,10 @@ CREATE TABLE IF NOT EXISTS contributions (
     status <> 'rejected' OR char_length(btrim(COALESCE(rejection_reason, ''))) > 0
   )
 );
+
+-- Safe forward migration from the first draft where contribution and review
+-- verdicts were coupled. Adding a Version no longer requires a review.
+ALTER TABLE contributions ALTER COLUMN would_eat_again DROP NOT NULL;
 
 CREATE TABLE IF NOT EXISTS notifications (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -559,3 +563,7 @@ CREATE OR REPLACE VIEW photos AS
 SELECT *
 FROM media
 WHERE media_type = 'image';
+
+-- Review verdicts are a required product field. Fail a forward migration if
+-- unexpected historical nulls exist instead of silently inventing a verdict.
+ALTER TABLE reviews ALTER COLUMN would_eat_again SET NOT NULL;

@@ -271,6 +271,10 @@ export const requireAdmin: RequestHandler = async (req, res, next) => {
       return;
     }
     if (user.role !== 'admin') {
+      if (isAdminHtmlRequest(req)) {
+        sendAdminAccessDenied(res);
+        return;
+      }
       sendAuthError(res, 403, 'FORBIDDEN', 'Administrator access required');
       return;
     }
@@ -323,6 +327,27 @@ function sendAuthError(
 function isAdminHtmlRequest(req: Request): boolean {
   const url = req.originalUrl || req.url;
   return url.startsWith('/admin') && Boolean(req.accepts('html'));
+}
+
+function sendAdminAccessDenied(res: Response): void {
+  res.status(403).type('html').send(`<!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="robots" content="noindex,nofollow">
+        <title>Administrator access required · Dish.</title>
+        <link rel="stylesheet" href="/admin/admin.css">
+      </head>
+      <body class="auth-page">
+        <main class="auth-card">
+          <div class="auth-brand">DISH. ADMIN</div>
+          <h1>Administrator access required</h1>
+          <p class="subtitle">This account is signed in as a normal user.</p>
+          <a class="button" href="/admin/login">Sign in with an admin account</a>
+        </main>
+      </body>
+    </html>`);
 }
 
 function assertPasswordInput(password: string): void {

@@ -1071,7 +1071,7 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
     proposed_restaurant_address: string | null;
     proposed_menu_name: string | null;
     price_paid: string | number | null;
-    would_eat_again: boolean;
+    would_eat_again: boolean | null;
     notes: string | null;
     status: string;
     rejection_reason: string | null;
@@ -1157,7 +1157,7 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
         <dt>Proposed address</dt><dd>${escapeHtml(row.proposed_restaurant_address ?? '—')}</dd>
         <dt>Menu name</dt><dd>${escapeHtml(row.proposed_menu_name ?? row.dish_name)}</dd>
         <dt>Price</dt><dd>${escapeHtml(formatMoney(row.price_paid))}</dd>
-        <dt>Would eat again</dt><dd>${row.would_eat_again ? 'Yes' : 'No'}</dd>
+        <dt>Would eat again</dt><dd>${row.would_eat_again == null ? 'Not part of this contribution' : row.would_eat_again ? 'Yes' : 'No'}</dd>
         <dt>Notes</dt><dd>${escapeHtml(row.notes ?? '—')}</dd>
         <dt>Submitted</dt><dd>${escapeHtml(formatDate(row.created_at))}</dd>
       </dl>
@@ -1176,6 +1176,7 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
       with source as (
         select c.*,u.display_name from contributions c join users u on u.id=c.user_id
         where c.id=$1 and c.status='pending'
+        for update of c
       ), upserted as (
         insert into dish_versions (dish_id,restaurant_id,menu_name,listed_price,currency,status,source,created_by,published_at)
         select dish_id,$2,$3,coalesce($4,price_paid),'AUD','published','contribution',$5,now() from source
@@ -1186,9 +1187,17 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
         returning id
       ), reviewed as (
         update contributions c set status='approved',resulting_version_id=v.id,reviewed_by=$5,reviewed_at=now(),rejection_reason=null
-        from source s,upserted v where c.id=s.id returning c.user_id,c.dish_id,c.would_eat_again,c.notes,c.price_paid,v.id as version_id
+        from source s,upserted v where c.id=s.id and c.status='pending'
+        returning c.user_id,c.dish_id,c.would_eat_again,c.notes,c.price_paid,v.id as version_id
+      ), published_dish as (
+        update dishes d set status='published',published_at=coalesce(d.published_at,now())
+        from reviewed where d.id=reviewed.dish_id returning d.id
+      ), published_restaurant as (
+        update restaurants r set status='published',published_at=coalesce(r.published_at,now())
+        from reviewed where r.id=$2 and r.status <> 'published' returning r.id
       ), approved_media as (
         update media m set status='approved',moderated_by=$5,moderated_at=now()
+        from reviewed
         where m.id in (select cm.media_id from contribution_media cm where cm.contribution_id=$1)
         returning id
       ), linked_media as (
@@ -1199,7 +1208,7 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
       ), published_review as (
         insert into reviews (version_id,user_id,author_name_snapshot,would_eat_again,body,price_paid,status,source)
         select reviewed.version_id,s.user_id,s.display_name,reviewed.would_eat_again,reviewed.notes,reviewed.price_paid,'published','contribution'
-        from reviewed join source s on true
+        from reviewed join source s on true where reviewed.would_eat_again is not null
         on conflict (version_id,user_id) where user_id is not null do nothing
         returning id
       ), notified as (
@@ -1227,7 +1236,8 @@ function registerContributions(router: Router, dependencies: AdminDependencies):
         where id=$1 and status='pending' returning id,user_id
       ), rejected_media as (
         update media set status='rejected',moderated_by=$2,moderated_at=now()
-        where id in (select media_id from contribution_media where contribution_id=$1)
+        from reviewed
+        where media.id in (select media_id from contribution_media where contribution_id=$1)
       ), notified as (
         insert into notifications (user_id,type,title,body,contribution_id)
         select user_id,'contribution_rejected','Contribution needs changes',$3,id from reviewed
