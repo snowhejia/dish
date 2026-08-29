@@ -4,6 +4,7 @@ export type Dish = {
   id: string;
   name: string;
   cuisine: string;
+  description?: string;
 };
 
 export type DishVersion = {
@@ -24,13 +25,28 @@ export type DishVersion = {
   phone?: string | null;
   hours?: string;
   galleryCount?: number;
-  source?: 'prototype' | 'real';
+  imageUrl?: string;
+  gallery?: string[];
+  restaurantId?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  source?: 'prototype' | 'real' | 'admin';
 };
 
 export type Review = {
+  id?: string;
   name: string;
   yes: boolean;
   text: string;
+  pricePaid?: number | null;
+  photoUrl?: string | null;
+  createdAt?: string;
+};
+
+export type CatalogSnapshot = {
+  dishes: Dish[];
+  versions: DishVersion[];
+  reviewsByVersion?: Record<string, Review[]>;
 };
 
 const prototypeDishes: Dish[] = [
@@ -119,27 +135,34 @@ export const reviewsByVersion: Record<string, Review[]> = {
   ...prototypeReviewsByVersion,
 };
 
-export const defaultReviews: Review[] = [
-  { name: 'Alex', yes: true, text: 'Solid version of this dish. I would order it again next week.' },
-  { name: 'Sam', yes: false, text: 'Fine but I prefer the version down the road.' },
-];
-
-const DEFAULT_DISH_ID = 'beef';
-const DEFAULT_VERSION_ID = 'beef-xian';
-
-export const dishById = (id?: string) => dishes.find((dish) => dish.id === id)
-  ?? dishes.find((dish) => dish.id === DEFAULT_DISH_ID)
-  ?? dishes[0];
-export const versionById = (id?: string) => versions.find((version) => version.id === id)
-  ?? versions.find((version) => version.id === DEFAULT_VERSION_ID)
-  ?? versions[0];
-export const versionsOfDish = (dishId?: string) => versions.filter((version) => version.dishId === (dishId ?? 'beef'));
+export const dishById = (id?: string) => dishes.find((dish) => dish.id === id);
+export const versionById = (id?: string) => versions.find((version) => version.id === id);
+export const versionsOfDish = (dishId?: string) => dishId
+  ? versions.filter((version) => version.dishId === dishId)
+  : [];
 export const dishForVersion = (version: DishVersion) => dishById(version.dishId);
-export const versionMenuName = (version: DishVersion) => version.menuName ?? dishForVersion(version).name;
+export const versionMenuName = (version: DishVersion) => version.menuName ?? dishForVersion(version)?.name ?? 'Dish';
 
 export const money = (price: number) => `$${price.toFixed(2)}`;
 export const distance = (metres: number) => metres >= 1000 ? `${(metres / 1000).toFixed(1)} km` : `${metres} m`;
-export const versionDistance = (version: DishVersion) => version.distanceLabel ?? distance(version.metres);
-export const versionAvailability = (version: DishVersion) => version.source === 'real' ? 'Hours listed' : 'Open now';
+export const versionDistance = (version: DishVersion) => version.distanceLabel
+  ?? (version.metres > 0 ? distance(version.metres) : 'Distance not listed');
+export const versionAvailability = (version: DishVersion) => version.hours ? 'Hours listed' : 'Hours not listed';
 
 export const restaurants = Array.from(new Set(versions.map((version) => version.restaurant)));
+
+/**
+ * Installs a server snapshot without replacing the exported array identities.
+ * Existing screens can keep the bundled demo dataset as an offline fallback,
+ * while CatalogProvider triggers a render when a Railway response arrives.
+ */
+export function installCatalogSnapshot(snapshot: CatalogSnapshot) {
+  dishes.splice(0, dishes.length, ...snapshot.dishes);
+  versions.splice(0, versions.length, ...snapshot.versions);
+  restaurants.splice(0, restaurants.length, ...Array.from(new Set(snapshot.versions.map((version) => version.restaurant))));
+
+  Object.keys(reviewsByVersion).forEach((key) => delete reviewsByVersion[key]);
+  if (snapshot.reviewsByVersion) {
+    Object.assign(reviewsByVersion, snapshot.reviewsByVersion);
+  }
+}

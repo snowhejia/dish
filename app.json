@@ -8,9 +8,11 @@
     "scheme": "dish",
     "userInterfaceStyle": "light",
     "ios": {
+      "bundleIdentifier": "app.dish.mobile",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "app.dish.mobile",
       "adaptiveIcon": {
         "backgroundColor": "#EDE9FF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -33,7 +35,8 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
