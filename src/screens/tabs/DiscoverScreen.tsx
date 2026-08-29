@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as Location from 'expo-location';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -22,6 +23,7 @@ import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 const QUICK_FILTERS = ['Soupy', 'Spicy', 'Under $20', '5 min walk', 'Open now'] as const satisfies readonly DiscoverFilter[];
+const DEFAULT_LOCATION_LABEL = 'USYD / Camperdown';
 
 type FeedItem = {
   dish: Dish;
@@ -41,6 +43,35 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<DiscoverFilter | null>(null);
   const [shuffleRevision, setShuffleRevision] = useState(0);
+  const [locationLabel, setLocationLabel] = useState(DEFAULT_LOCATION_LABEL);
+  const [isLocating, setIsLocating] = useState(false);
+  const locatingRef = useRef(false);
+
+  const refreshLocation = useCallback(async () => {
+    if (locatingRef.current) return;
+
+    locatingRef.current = true;
+    setIsLocating(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== Location.PermissionStatus.GRANTED) return;
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const [address] = await Location.reverseGeocodeAsync(position.coords);
+      if (address) setLocationLabel(formatLocationLabel(address));
+    } catch {
+      // Keep the familiar campus fallback when location is unavailable.
+    } finally {
+      locatingRef.current = false;
+      setIsLocating(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshLocation();
+  }, [refreshLocation]);
 
   const feed = useMemo(() => {
     const query = normalizeCatalogText(search);
@@ -79,7 +110,7 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >
-      <View style={[styles.hero, { paddingTop: Math.max(56, insets.top + spacing[9]) }]}>
+      <View style={[styles.hero, { paddingTop: Math.max(spacing[26], insets.top + spacing[4]) }]}>
         <View style={styles.brandRow}>
           <Image
             accessibilityLabel="Dish app logo"
@@ -87,17 +118,24 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
             source={require('../../../assets/images/app-icon-dish.png')}
             style={styles.logo}
           />
-          <View style={styles.locationPill}>
+          <Pressable
+            accessibilityHint="Refreshes your current suburb"
+            accessibilityLabel={`Current location: ${locationLabel}`}
+            accessibilityRole="button"
+            disabled={isLocating}
+            onPress={() => void refreshLocation()}
+            style={({ pressed }) => [styles.locationPill, pressed && styles.locationPillPressed]}
+          >
             <LocationPinIcon color={colors.purpleLogo} size={11} strokeWidth={1.5} />
-            <Text style={styles.locationText}>USYD / Camperdown</Text>
-          </View>
+            <Text numberOfLines={1} style={styles.locationText}>{locationLabel}</Text>
+          </Pressable>
         </View>
 
         <View style={styles.heroCopyRow}>
           <Text style={styles.heroTitle}>What are you eating{`\n`}after class?</Text>
           {showMascot ? (
             <View style={styles.heroMascot}>
-              <Dishy size={124} variant="enjoy" />
+              <Dishy size={98} variant="enjoy" />
             </View>
           ) : null}
         </View>
@@ -201,6 +239,17 @@ function interleaveByCuisine(items: FeedItem[], shuffleRevision: number) {
   return result;
 }
 
+function formatLocationLabel(address: Location.LocationGeocodedAddress) {
+  const primary = address.district ?? address.subregion ?? address.city ?? address.name;
+  const secondary = address.city && address.city !== primary
+    ? address.city
+    : address.region && address.region !== primary
+      ? address.region
+      : null;
+  const parts = [primary, secondary].filter((part): part is string => Boolean(part));
+  return parts.slice(0, 2).join(' / ') || DEFAULT_LOCATION_LABEL;
+}
+
 function seededRandom(seed: number) {
   let value = seed || 1;
   return () => {
@@ -228,19 +277,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lavender,
     borderBottomLeftRadius: radii.hero,
     borderBottomRightRadius: radii.hero,
-    paddingBottom: spacing[16],
+    paddingBottom: spacing[12],
     paddingHorizontal: sizes.pageGutter,
   },
   brandRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing[16],
+    marginBottom: spacing[10],
   },
   logo: {
-    borderRadius: 9,
-    height: 40,
-    width: 40,
+    borderRadius: 8,
+    height: 36,
+    width: 36,
   },
   locationPill: {
     alignItems: 'center',
@@ -248,8 +297,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     flexDirection: 'row',
     gap: spacing[5],
+    maxWidth: '68%',
     paddingHorizontal: spacing[10],
-    paddingVertical: spacing[5],
+    paddingVertical: spacing[4],
+  },
+  locationPillPressed: {
+    opacity: 0.72,
   },
   locationText: {
     color: colors.purpleLogo,
@@ -262,7 +315,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing[12],
     justifyContent: 'space-between',
-    marginBottom: spacing[16],
+    marginBottom: spacing[12],
   },
   heroTitle: {
     color: colors.titleInk,
@@ -278,7 +331,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginBottom: -2,
     marginRight: -4,
-    width: 122,
+    width: 98,
   },
   filterContent: {
     paddingBottom: spacing[4],

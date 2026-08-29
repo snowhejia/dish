@@ -94,11 +94,6 @@ export const sizes = {
   compareLabel: 74,
 } as const;
 
-export const fonts = {
-  pixelRegular: 'Silkscreen_400Regular',
-  pixelBold: 'Silkscreen_700Bold',
-} as const;
-
 export const type = {
   displayLarge: { fontSize: 28, lineHeight: 31.4, fontWeight: '700', letterSpacing: -0.8 } as TextStyle,
   display: { fontSize: 27, lineHeight: 32, fontWeight: '700', letterSpacing: -0.7 } as TextStyle,
@@ -110,11 +105,11 @@ export const type = {
   meta: { fontSize: 12.5, lineHeight: 17, fontWeight: '400' } as TextStyle,
   caption: { fontSize: 11.5, lineHeight: 15, fontWeight: '400' } as TextStyle,
   tab: { fontSize: 10.5, lineHeight: 13, fontWeight: '600', letterSpacing: -0.1 } as TextStyle,
-  pixelEyebrow: {
-    fontFamily: fonts.pixelRegular,
-    fontSize: 10,
+  sectionLabel: {
+    fontSize: 11,
     lineHeight: 14,
-    letterSpacing: 1.2,
+    fontWeight: '700',
+    letterSpacing: 0.65,
   } as TextStyle,
 } as const;
 

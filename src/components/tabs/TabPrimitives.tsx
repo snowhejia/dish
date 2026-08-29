@@ -144,7 +144,7 @@ export function BottomTabSpacer() {
 
 const styles = StyleSheet.create({
   eyebrow: {
-    ...type.pixelEyebrow,
+    ...type.sectionLabel,
   },
   search: {
     alignItems: 'center',

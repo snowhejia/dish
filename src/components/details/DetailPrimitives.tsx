@@ -169,7 +169,7 @@ export function ActionButton({
 }
 
 export function PixelEyebrow({ children, purple = false, style }: { children: ReactNode; purple?: boolean; style?: StyleProp<TextStyle> }) {
-  return <Text style={[type.pixelEyebrow, { color: purple ? colors.purple : colors.muted }, style]}>{children}</Text>;
+  return <Text style={[type.sectionLabel, { color: purple ? colors.purple : colors.muted }, style]}>{children}</Text>;
 }
 
 export function ProgressBar({ value, width = sizes.progressWidth }: { value: number; width?: number }) {

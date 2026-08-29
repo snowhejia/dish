@@ -7,7 +7,6 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1120.0",
-    "@expo-google-fonts/silkscreen": "^0.4.2",
     "@expo/ui": "~57.0.14",
     "cors": "^2.8.6",
     "expo": "~57.0.18",
@@ -23,6 +22,7 @@
     "expo-image-picker": "~57.0.14",
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.8",
+    "expo-location": "~57.0.14",
     "expo-router": "~57.0.17",
     "expo-secure-store": "^57.0.2",
     "expo-splash-screen": "~57.0.8",

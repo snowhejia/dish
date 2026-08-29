@@ -3,7 +3,7 @@ import type { ImageSourcePropType } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BookmarkIcon } from '@/components/icons';
-import { colors, fonts, radii, sizes, spacing } from '@/theme/tokens';
+import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 export function SavedCard({
   kind,
@@ -80,10 +80,10 @@ const styles = StyleSheet.create({
   },
   kind: {
     color: colors.purple,
-    fontFamily: fonts.pixelRegular,
-    fontSize: 8,
-    letterSpacing: 0.8,
-    lineHeight: 10,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    lineHeight: 13,
   },
   title: {
     color: colors.ink,

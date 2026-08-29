@@ -3,9 +3,9 @@ import { BlurView } from 'expo-blur';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Dish, DishVersion } from '@/data/mockData';
-import { money, versionDistance, versionMenuName } from '@/data/mockData';
+import { money, versionDistance } from '@/data/mockData';
 import { fallbackFoodImage, foodImages } from '@/data/images';
-import { colors, fonts, radii, spacing } from '@/theme/tokens';
+import { colors, radii, spacing } from '@/theme/tokens';
 
 export function DiscoverVersionCard({
   dish,
@@ -22,7 +22,7 @@ export function DiscoverVersionCard({
 }) {
   return (
     <Pressable
-      accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}, ${dish.name}`}
+      accessibilityLabel={`${dish.name} at ${version.restaurant}`}
       accessibilityRole="button"
       onPress={onPress}
       style={{ width }}
@@ -37,7 +37,7 @@ export function DiscoverVersionCard({
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={2} style={styles.title}>
-          {versionMenuName(version)}
+          {dish.name}
         </Text>
         <Text numberOfLines={1} style={styles.restaurant}>
           {version.restaurant}
@@ -52,7 +52,7 @@ export function DiscoverVersionCard({
 
 const styles = StyleSheet.create({
   imageFrame: {
-    aspectRatio: 1,
+    aspectRatio: 4 / 3,
     backgroundColor: colors.imageSurface,
     borderRadius: radii.card,
     overflow: 'hidden',
@@ -71,10 +71,10 @@ const styles = StyleSheet.create({
   },
   moreLabel: {
     color: colors.white,
-    fontFamily: fonts.pixelRegular,
-    fontSize: 8,
-    letterSpacing: 0.6,
-    lineHeight: 10,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.45,
+    lineHeight: 11,
   },
   copy: {
     paddingHorizontal: spacing[2],
