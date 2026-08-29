@@ -92,22 +92,24 @@ export async function repairBundledRealData() {
 async function repairBundledRealDataWithLock() {
   const records = loadRealFoodRecords();
   const prefix = normalizePrefix(process.env.SEED_MEDIA_OBJECT_PREFIX ?? 'seed/food');
-  const restaurantCovers = await repairBundledRestaurantCovers(records);
   const before = await realDataState(records, prefix);
 
-  if (before.imported === 0) {
-    return { status: 'skipped_no_imported_versions', expected: records.length, restaurantCovers, ...before };
-  }
-  if (before.imported !== records.length) {
-    return { status: 'skipped_incomplete_import', expected: records.length, restaurantCovers, ...before };
-  }
-  const metadata = before.legacyTaxonomy > 0
+  // Converge metadata when this deploy adds checked-in records or repairs the
+  // original import. Once complete, normal restarts stay read-only so an
+  // administrator's later tag and alias choices are not reintroduced.
+  const needsMetadata = before.imported !== records.length
+    || before.legacyTaxonomy > 0
     || before.taxonomyMismatches > 0
     || before.canonicalNameMismatches > 0
-    || before.missingRestaurantCoordinates > 0
+    || before.missingRestaurantCoordinates > 0;
+  const metadata = needsMetadata
     ? await seedDatabase({ includeMedia: false, includeUsers: false })
     : undefined;
+  const restaurantCovers = await repairBundledRestaurantCovers(records);
   const current = metadata ? await realDataState(records, prefix) : before;
+  if (current.imported !== records.length) {
+    throw new Error(`Real data repair imported ${current.imported} of ${records.length} expected versions`);
+  }
   if (current.missingRestaurantCoordinates > 0) {
     throw new Error(`Real data repair left ${current.missingRestaurantCoordinates} imported restaurants without coordinates`);
   }

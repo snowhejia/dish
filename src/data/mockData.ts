@@ -1,4 +1,4 @@
-import { realFoodRecords, realVersionId } from './realData';
+import { realFoodRecords, realVersionId, type RealFoodRecord } from './realData';
 
 export type Dish = {
   id: string;
@@ -55,32 +55,87 @@ export type CatalogSnapshot = {
 };
 
 const prototypeDishes: Dish[] = [
-  { id: 'beef', name: 'Beef Noodle Soup', cuisine: 'Chinese' },
   { id: 'banhmi', name: 'Banh Mi', cuisine: 'Vietnamese' },
-  { id: 'katsu', name: 'Chicken Katsu Curry', cuisine: 'Japanese' },
-  { id: 'dumpling', name: 'Pork Dumplings', cuisine: 'Chinese' },
-  { id: 'wonton', name: 'Wonton Noodle Soup', cuisine: 'Chinese' },
-  { id: 'katsudon', name: 'Pork Katsu Don', cuisine: 'Japanese' },
-  { id: 'porkroll', name: 'Crispy Pork Roll', cuisine: 'Vietnamese' },
+  { id: 'katsudon', name: 'Katsudon', cuisine: 'Japanese' },
 ];
 
 const prototypeVersions: DishVersion[] = [
-  { id: 'beef-xian', dishId: 'beef', restaurant: "Xi'an Noodle House", cuisine: 'Chinese', metres: 820, price: 16.8, wouldEatAgain: 94, votes: 128, tags: ['Rich broth', 'Big portion', 'Hand-pulled', 'Chilli oil'], mapX: '58%', mapY: 300 },
-  { id: 'beef-inn', dishId: 'beef', restaurant: 'Noodle Inn', cuisine: 'Chinese', metres: 1100, price: 15.5, wouldEatAgain: 90, votes: 86, tags: ['Clear broth', 'Tender beef', 'Quick'], mapX: '26%', mapY: 205 },
-  { id: 'beef-lanzhou', dishId: 'beef', restaurant: 'Little Lanzhou', cuisine: 'Chinese', metres: 1400, price: 18, wouldEatAgain: 88, votes: 64, tags: ['Spicy', 'Thin noodles'], mapX: '76%', mapY: 470 },
-  { id: 'beef-golden', dishId: 'beef', restaurant: 'Golden Bowl', cuisine: 'Chinese', metres: 600, price: 14.9, wouldEatAgain: 76, votes: 41, tags: ['Cheap', 'Small portion'], mapX: '38%', mapY: 560 },
+  { id: 'beef-xian', dishId: 'real-beef-noodle-soup', menuName: 'Beef Noodle Soup', restaurant: "Xi'an Noodle House", cuisine: 'Chinese', metres: 820, price: 16.8, wouldEatAgain: 94, votes: 128, tags: ['Rich broth', 'Big portion', 'Hand-pulled', 'Chilli oil'], mapX: '58%', mapY: 300 },
+  { id: 'beef-inn', dishId: 'real-beef-noodle-soup', menuName: 'Beef Noodle Soup', restaurant: 'Noodle Inn', cuisine: 'Chinese', metres: 1100, price: 15.5, wouldEatAgain: 90, votes: 86, tags: ['Clear broth', 'Tender beef', 'Quick'], mapX: '26%', mapY: 205 },
+  { id: 'beef-lanzhou', dishId: 'real-beef-noodle-soup', menuName: 'Lanzhou Beef Noodles', restaurant: 'Little Lanzhou', cuisine: 'Chinese', metres: 1400, price: 18, wouldEatAgain: 88, votes: 64, tags: ['Spicy', 'Thin noodles'], mapX: '76%', mapY: 470 },
+  { id: 'beef-golden', dishId: 'real-beef-noodle-soup', menuName: 'Braised Beef Noodle Soup', restaurant: 'Golden Bowl', cuisine: 'Chinese', metres: 600, price: 14.9, wouldEatAgain: 76, votes: 41, tags: ['Cheap', 'Small portion'], mapX: '38%', mapY: 560 },
   { id: 'banhmi-saigon', dishId: 'banhmi', restaurant: 'Saigon Corner', cuisine: 'Vietnamese', metres: 450, price: 12.5, wouldEatAgain: 96, votes: 210, tags: ['Crusty roll', 'Loaded', 'Fast'] },
   { id: 'banhmi-haiba', dishId: 'banhmi', restaurant: 'Hai Ba Deli', cuisine: 'Vietnamese', metres: 900, price: 13, wouldEatAgain: 89, votes: 77, tags: ['Pork belly', 'Pickles'] },
-  { id: 'katsu-kagawa', dishId: 'katsu', restaurant: 'Kagawa Kitchen', cuisine: 'Japanese', metres: 700, price: 18.5, wouldEatAgain: 92, votes: 154, tags: ['Crispy', 'Mild curry', 'Filling'] },
-  { id: 'katsu-lab', dishId: 'katsu', restaurant: 'Curry Lab', cuisine: 'Japanese', metres: 1200, price: 17, wouldEatAgain: 81, votes: 58, tags: ['Thick sauce', 'Fast'] },
-  { id: 'dumpling-xian', dishId: 'dumpling', restaurant: "Xi'an Noodle House", cuisine: 'Chinese', metres: 820, price: 13.8, wouldEatAgain: 85, votes: 96, tags: ['Juicy', 'Thin skin'] },
-  { id: 'wonton-alley', dishId: 'wonton', restaurant: 'Dumpling Alley', cuisine: 'Chinese', metres: 300, price: 15.2, wouldEatAgain: 91, votes: 143, tags: ['Silky wontons', 'Light broth'] },
-  { id: 'wonton-inn', dishId: 'wonton', restaurant: 'Noodle Inn', cuisine: 'Chinese', metres: 1100, price: 14.8, wouldEatAgain: 83, votes: 61, tags: ['Big bowl', 'Mild'] },
+  { id: 'katsu-kagawa', dishId: 'real-japanese-curry', menuName: 'Chicken Katsu Curry', restaurant: 'Kagawa Kitchen', cuisine: 'Japanese', metres: 700, price: 18.5, wouldEatAgain: 92, votes: 154, tags: ['Crispy', 'Mild curry', 'Filling'] },
+  { id: 'katsu-lab', dishId: 'real-japanese-curry', menuName: 'Chicken Katsu Curry', restaurant: 'Curry Lab', cuisine: 'Japanese', metres: 1200, price: 17, wouldEatAgain: 81, votes: 58, tags: ['Thick sauce', 'Fast'] },
+  { id: 'dumpling-xian', dishId: 'real-dumplings', menuName: 'Pork Dumplings', restaurant: "Xi'an Noodle House", cuisine: 'Chinese', metres: 820, price: 13.8, wouldEatAgain: 85, votes: 96, tags: ['Juicy', 'Thin skin'] },
+  { id: 'wonton-alley', dishId: 'real-wonton-noodles', menuName: 'Wonton Noodle Soup', restaurant: 'Dumpling Alley', cuisine: 'Chinese', metres: 300, price: 15.2, wouldEatAgain: 91, votes: 143, tags: ['Silky wontons', 'Light broth'] },
+  { id: 'wonton-inn', dishId: 'real-wonton-noodles', menuName: 'Wonton Noodle Soup', restaurant: 'Noodle Inn', cuisine: 'Chinese', metres: 1100, price: 14.8, wouldEatAgain: 83, votes: 61, tags: ['Big bowl', 'Mild'] },
   { id: 'katsudon-kagawa', dishId: 'katsudon', restaurant: 'Kagawa Kitchen', cuisine: 'Japanese', metres: 700, price: 16.5, wouldEatAgain: 90, votes: 72, tags: ['Runny egg', 'Comfort'] },
   { id: 'katsudon-ricebar', dishId: 'katsudon', restaurant: 'Rice Bar', cuisine: 'Japanese', metres: 520, price: 15.9, wouldEatAgain: 84, votes: 49, tags: ['Generous rice', 'Cheap'] },
-  { id: 'porkroll-marrick', dishId: 'porkroll', restaurant: 'Marrickville Pork Roll', cuisine: 'Vietnamese', metres: 640, price: 11.5, wouldEatAgain: 95, votes: 186, tags: ['Crackling', 'Value', 'Takeaway'] },
-  { id: 'porkroll-bakehouse', dishId: 'porkroll', restaurant: 'Newtown Bakehouse', cuisine: 'Vietnamese', metres: 1250, price: 13.5, wouldEatAgain: 82, votes: 54, tags: ['Soft roll', 'Mild'] },
+  { id: 'porkroll-marrick', dishId: 'banhmi', menuName: 'Crispy Pork Roll', restaurant: 'Marrickville Pork Roll', cuisine: 'Vietnamese', metres: 640, price: 11.5, wouldEatAgain: 95, votes: 186, tags: ['Crackling', 'Value', 'Takeaway'] },
+  { id: 'porkroll-bakehouse', dishId: 'banhmi', menuName: 'Crispy Pork Roll', restaurant: 'Newtown Bakehouse', cuisine: 'Vietnamese', metres: 1250, price: 13.5, wouldEatAgain: 82, votes: 54, tags: ['Soft roll', 'Mild'] },
 ];
+
+const fallbackPositiveReviews = [
+  'A really satisfying version of this dish. The flavours were balanced and I would order it again.',
+  'Fresh, well seasoned and a generous serve. It held up well even after the trip home.',
+  'Comforting and full of flavour without feeling too heavy. A dependable order here.',
+] as const;
+
+const fallbackNegativeReviews = [
+  'The flavours were decent, but the portion felt small for the price.',
+  'A little too salty for me on this visit, although the texture was good.',
+  'It arrived quickly, but the dish was not quite as balanced as I expected.',
+] as const;
+
+function fallbackReviewsForRecord(record: RealFoodRecord): Review[] {
+  const seed = stableSeed(record.id);
+  const primary: Review = {
+    name: record.author,
+    yes: true,
+    text: record.recommendation,
+    pricePaid: record.price,
+  };
+  const configured = (record.reviews ?? []).map((review) => ({
+    name: review.author,
+    yes: review.yes,
+    text: review.text,
+    pricePaid: review.pricePaid ?? null,
+  }));
+  if (configured.length > 0) return [primary, ...configured];
+
+  return [
+    primary,
+    {
+      name: ['Mia', 'Daniel', 'Sophie'][seed % 3]!,
+      yes: true,
+      text: fallbackPositiveReviews[seed % fallbackPositiveReviews.length]!,
+      pricePaid: record.price,
+    },
+    {
+      name: ['Jordan', 'Sam', 'Taylor'][(seed + 1) % 3]!,
+      yes: false,
+      text: fallbackNegativeReviews[(seed + 1) % fallbackNegativeReviews.length]!,
+      pricePaid: record.price,
+    },
+  ];
+}
+
+function fallbackRatingBaselineForRecord(record: RealFoodRecord) {
+  if (record.ratingBaseline) return record.ratingBaseline;
+  const seed = stableSeed(record.id);
+  return {
+    yesCount: 10 + (seed % 24),
+    noCount: 2 + (Math.floor(seed / 7) % 7),
+  };
+}
+
+function stableSeed(value: string) {
+  let seed = 0;
+  for (const character of value) seed = (seed * 31 + character.charCodeAt(0)) >>> 0;
+  return seed;
+}
 
 export const realDishes: Dish[] = Array.from(new Map(
   realFoodRecords.map((record) => [
@@ -94,27 +149,33 @@ export const realDishes: Dish[] = Array.from(new Map(
   ]),
 ).values());
 
-export const realVersions: DishVersion[] = realFoodRecords.map((record) => ({
-  id: realVersionId(record.id),
-  dishId: record.canonicalDishId,
-  menuName: record.name,
-  restaurant: record.restaurant,
-  cuisine: record.cuisine,
-  dishType: record.dishType,
-  metres: 0,
-  distanceLabel: record.area,
-  price: record.price,
-  wouldEatAgain: 100,
-  votes: 1,
-  tags: [...record.tags],
-  address: record.address,
-  phone: record.phone,
-  hours: record.hours,
-  latitude: record.latitude,
-  longitude: record.longitude,
-  galleryCount: 1,
-  source: 'real',
-}));
+export const realVersions: DishVersion[] = realFoodRecords.map((record) => {
+  const reviews = fallbackReviewsForRecord(record);
+  const baseline = fallbackRatingBaselineForRecord(record);
+  const yesVotes = baseline.yesCount + reviews.filter((review) => review.yes).length;
+  const votes = baseline.yesCount + baseline.noCount + reviews.length;
+  return {
+    id: realVersionId(record.id),
+    dishId: record.canonicalDishId,
+    menuName: record.name,
+    restaurant: record.restaurant,
+    cuisine: record.cuisine,
+    dishType: record.dishType,
+    metres: 0,
+    distanceLabel: record.area,
+    price: record.price,
+    wouldEatAgain: Math.round(yesVotes * 100 / votes),
+    votes,
+    tags: [...record.tags],
+    address: record.address,
+    phone: record.phone,
+    hours: record.hours,
+    latitude: record.latitude,
+    longitude: record.longitude,
+    galleryCount: 1,
+    source: 'real',
+  };
+});
 
 // Real records lead browse surfaces, while the original prototype data remains
 // available for its multi-version comparison and saved-item flows.
@@ -135,7 +196,7 @@ const prototypeReviewsByVersion: Record<string, Review[]> = {
 const realReviewsByVersion: Record<string, Review[]> = Object.fromEntries(
   realFoodRecords.map((record) => [
     realVersionId(record.id),
-    [{ name: record.author, yes: true, text: record.recommendation }],
+    fallbackReviewsForRecord(record),
   ]),
 );
 

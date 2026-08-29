@@ -8,6 +8,20 @@ import { z } from 'zod';
 import { hashPassword } from './auth';
 import { closeDb, ensureSchema, withTransaction } from './db';
 
+const realFoodReviewSchema = z.object({
+  id: z.string().trim().min(1).max(120).refine((id) => id !== 'primary', 'Review id "primary" is reserved'),
+  author: z.string().trim().min(1).max(80),
+  yes: z.boolean(),
+  text: z.string().max(4_000),
+  pricePaid: z.number().finite().nonnegative().nullable().optional(),
+  visitedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+const ratingBaselineSchema = z.object({
+  yesCount: z.number().int().nonnegative(),
+  noCount: z.number().int().nonnegative(),
+});
+
 const realFoodRecordSchema = z.object({
   id: z.string().min(1),
   canonicalDishId: z.string().min(1),
@@ -29,6 +43,10 @@ const realFoodRecordSchema = z.object({
   phone: z.string().nullable(),
   hours: z.string(),
   area: z.string(),
+  reviews: z.array(realFoodReviewSchema)
+    .refine((reviews) => new Set(reviews.map((review) => review.id)).size === reviews.length, 'Review ids must be unique within a version')
+    .optional(),
+  ratingBaseline: ratingBaselineSchema.optional(),
 });
 
 const realFoodRecordsSchema = z.array(realFoodRecordSchema).min(1);
@@ -72,6 +90,8 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
     const tagIds = new Map<string, string>();
     const mediaIds = new Map<string, string>();
 
+    let reviewsSeeded = 0;
+
     for (const record of records) {
       if (!dishIds.has(record.canonicalDishId)) {
         dishIds.set(record.canonicalDishId, await seedDish(client, record));
@@ -106,7 +126,12 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
         );
       }
 
-      await seedReview(client, record, versionId);
+      const reviews = reviewsForRecord(record);
+      for (const review of reviews) {
+        await seedReview(client, record, review, versionId);
+        reviewsSeeded += 1;
+      }
+      await seedRatingBaseline(client, versionId, ratingBaselineForRecord(record));
 
       if (includeMedia) {
         const mediaId = await seedMedia(client, record, objectPrefix);
@@ -165,7 +190,7 @@ export async function seedDatabase(options: SeedOptions = {}): Promise<SeedSumma
       dishes: dishIds.size,
       restaurants: restaurantIds.size,
       versions: versionIds.size,
-      reviews: records.length,
+      reviews: reviewsSeeded,
       tags: tagIds.size,
       media: mediaIds.size,
       users: usersSeeded,
@@ -291,7 +316,14 @@ async function seedVersion(
         currency, status, source, published_at
       )
       VALUES ($1, $2, $3, $4, $5, 'AUD', 'published', 'real_import', now())
-      ON CONFLICT (legacy_key) DO UPDATE SET legacy_key = EXCLUDED.legacy_key
+      ON CONFLICT (legacy_key) DO UPDATE SET
+        legacy_key = EXCLUDED.legacy_key,
+        menu_name = CASE
+          WHEN dish_versions.source = 'real_import'
+            AND dish_versions.menu_name = 'Str-fried Tender Beef with Pickled Chilies（泡椒牛肉）'
+          THEN EXCLUDED.menu_name
+          ELSE dish_versions.menu_name
+        END
       RETURNING id
     `,
     [legacyKey, dishId, restaurantId, record.name, record.price],
@@ -315,19 +347,135 @@ async function seedTag(client: PoolClient, name: string): Promise<string> {
 async function seedReview(
   client: PoolClient,
   record: RealFoodRecord,
+  review: SeedReview,
   versionId: string,
 ): Promise<void> {
   await client.query(
     `
       INSERT INTO reviews (
         legacy_key, version_id, user_id, author_name_snapshot,
-        would_eat_again, body, price_paid, status, source
+        would_eat_again, body, price_paid, visited_on, status, source
       )
-      VALUES ($1, $2, NULL, $3, true, $4, $5, 'published', 'real_import')
-      ON CONFLICT (legacy_key) DO NOTHING
+      VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, 'published', 'real_import')
+      ON CONFLICT (legacy_key) DO UPDATE SET
+        version_id = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.version_id ELSE reviews.version_id END,
+        author_name_snapshot = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.author_name_snapshot ELSE reviews.author_name_snapshot END,
+        would_eat_again = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.would_eat_again ELSE reviews.would_eat_again END,
+        body = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.body ELSE reviews.body END,
+        price_paid = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.price_paid ELSE reviews.price_paid END,
+        visited_on = CASE WHEN reviews.source = 'real_import' THEN EXCLUDED.visited_on ELSE reviews.visited_on END,
+        updated_at = CASE WHEN reviews.source = 'real_import' THEN now() ELSE reviews.updated_at END
     `,
-    [`real-review:${record.id}`, versionId, record.author, record.recommendation, record.price],
+    [
+      review.id === 'primary' ? `real-review:${record.id}` : `real-review:${record.id}:${review.id}`,
+      versionId,
+      review.author,
+      review.yes,
+      review.text,
+      review.pricePaid,
+      review.visitedOn,
+    ],
   );
+}
+
+type SeedReview = {
+  id: string;
+  author: string;
+  yes: boolean;
+  text: string;
+  pricePaid: number | null;
+  visitedOn: string | null;
+};
+
+const fallbackPositiveReviews = [
+  'A really satisfying version of this dish. The flavours were balanced and I would order it again.',
+  'Fresh, well seasoned and a generous serve. It held up well even after the trip home.',
+  'Comforting and full of flavour without feeling too heavy. A dependable order here.',
+] as const;
+
+const fallbackNegativeReviews = [
+  'The flavours were decent, but the portion felt small for the price.',
+  'A little too salty for me on this visit, although the texture was good.',
+  'It arrived quickly, but the dish was not quite as balanced as I expected.',
+] as const;
+
+function reviewsForRecord(record: RealFoodRecord): SeedReview[] {
+  const seed = stableSeed(record.id);
+  const primary: SeedReview = {
+    id: 'primary',
+    author: record.author,
+    yes: true,
+    text: record.recommendation,
+    pricePaid: record.price,
+    visitedOn: null,
+  };
+  const configured = (record.reviews ?? []).map((review) => ({
+    id: review.id,
+    author: review.author,
+    yes: review.yes,
+    text: review.text,
+    pricePaid: review.pricePaid ?? null,
+    visitedOn: review.visitedOn ?? null,
+  }));
+  if (configured.length > 0) return [primary, ...configured];
+
+  return [
+    primary,
+    {
+      id: 'community-positive',
+      author: ['Mia', 'Daniel', 'Sophie'][seed % 3]!,
+      yes: true,
+      text: fallbackPositiveReviews[seed % fallbackPositiveReviews.length]!,
+      pricePaid: record.price,
+      visitedOn: null,
+    },
+    {
+      id: 'community-negative',
+      author: ['Jordan', 'Sam', 'Taylor'][(seed + 1) % 3]!,
+      yes: false,
+      text: fallbackNegativeReviews[(seed + 1) % fallbackNegativeReviews.length]!,
+      pricePaid: record.price,
+      visitedOn: null,
+    },
+  ];
+}
+
+function ratingBaselineForRecord(record: RealFoodRecord): { yesCount: number; noCount: number } {
+  if (record.ratingBaseline) return record.ratingBaseline;
+  const seed = stableSeed(record.id);
+  return {
+    yesCount: 10 + (seed % 24),
+    noCount: 2 + (Math.floor(seed / 7) % 7),
+  };
+}
+
+async function seedRatingBaseline(
+  client: PoolClient,
+  versionId: string,
+  baseline: { yesCount: number; noCount: number },
+): Promise<void> {
+  await client.query(
+    `
+      INSERT INTO version_rating_baselines (version_id, yes_count, no_count, source)
+      VALUES ($1, $2, $3, 'real_import')
+      ON CONFLICT (version_id) DO UPDATE SET
+        yes_count = CASE
+          WHEN version_rating_baselines.source = 'real_import' THEN EXCLUDED.yes_count
+          ELSE version_rating_baselines.yes_count
+        END,
+        no_count = CASE
+          WHEN version_rating_baselines.source = 'real_import' THEN EXCLUDED.no_count
+          ELSE version_rating_baselines.no_count
+        END
+    `,
+    [versionId, baseline.yesCount, baseline.noCount],
+  );
+}
+
+function stableSeed(value: string): number {
+  let seed = 0;
+  for (const character of value) seed = (seed * 31 + character.charCodeAt(0)) >>> 0;
+  return seed;
 }
 
 async function seedMedia(
