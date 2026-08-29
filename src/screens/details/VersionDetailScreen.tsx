@@ -3,7 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackIcon, BookmarkIcon, ChevronRightIcon, DirectionsIcon, ReviewIcon } from '@/components/icons';
-import { Dishy } from '@/components/brand';
+import { Dishy } from '@/components/brand/Dishy';
 import {
   ActionButton,
   CatalogEntityState,
