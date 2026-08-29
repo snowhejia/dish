@@ -2,8 +2,8 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Dishy } from '@/components/brand';
-import { DetailHeader, DetailScreen, FoodImage, Tag } from '@/components/details';
-import { foodImages } from '@/data/images';
+import { CatalogEntityState, DetailHeader, DetailScreen, FoodImage, Tag } from '@/components/details';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import {
   dishById,
   money,
@@ -13,6 +13,7 @@ import {
   type DishVersion,
 } from '@/data/mockData';
 import { colors, radii, sizes } from '@/theme/tokens';
+import { useCatalog } from '@/providers/CatalogProvider';
 
 export type CompareScreenProps = {
   dishId?: string;
@@ -22,21 +23,34 @@ export type CompareScreenProps = {
 };
 
 export function CompareScreen({
-  dishId = 'beef',
+  dishId,
   versionIds,
   onBack,
   onOpenVersion,
 }: CompareScreenProps) {
+  const { error, loading, refreshCatalog, revision } = useCatalog();
   const dish = dishById(dishId);
   const columns = useMemo(() => {
-    const available = versionsOfDish(dish.id);
+    const available = versionsOfDish(dish?.id);
     const requested = versionIds
       ?.map((id) => available.find((version) => version.id === id))
       .filter((version): version is DishVersion => Boolean(version))
       .filter((version, index, items) => items.findIndex((item) => item.id === version.id) === index);
     return (requested && requested.length >= 2 ? requested : available.slice(0, 2)).slice(0, 3);
-  }, [dish.id, versionIds]);
-  const bestScore = Math.max(...columns.map((version) => version.wouldEatAgain));
+  }, [dish?.id, revision, versionIds]);
+  const bestScore = columns.length ? Math.max(...columns.map((version) => version.wouldEatAgain)) : 0;
+
+  if (!dish) {
+    return (
+      <CatalogEntityState
+        entity="dish"
+        error={error}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
 
   return (
     <DetailScreen>
@@ -53,7 +67,7 @@ export function CompareScreen({
             <View key={column.id} style={styles.column}>
               <View style={styles.photo}>
                 <FoodImage
-                  source={foodImages[column.id]}
+                  source={foodImages[column.id] ?? fallbackFoodImage}
                   style={StyleSheet.absoluteFill}
                   accessibilityLabel={`${versionMenuName(column)} at ${column.restaurant}`}
                 />

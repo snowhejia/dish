@@ -1,10 +1,24 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Alert } from 'react-native';
 
 import { VersionDetailScreen } from '@/screens/details/VersionDetailScreen';
+import { versionById } from '@/data/mockData';
+import { openDirections } from '@/lib/directions';
+import { authHref, returnPath } from '@/lib/navigation';
 
 export default function VersionDetailRoute() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  const getDirections = async (versionId: string) => {
+    const selectedVersion = versionById(versionId);
+    if (!selectedVersion) return;
+    try {
+      await openDirections(selectedVersion);
+    } catch (error) {
+      Alert.alert('Could not open directions', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
 
   return (
     <VersionDetailScreen
@@ -22,6 +36,8 @@ export default function VersionDetailRoute() {
       onSeeAllVersions={(dishId) =>
         router.push({ pathname: '/dish/[id]', params: { id: dishId } })
       }
+      onGetDirections={(versionId) => void getDirections(versionId)}
+      onSignIn={() => router.push(authHref('login', returnPath('version', id)))}
     />
   );
 }

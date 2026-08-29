@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { authHref, returnPath } from '@/lib/navigation';
 import { DishBlockScreen } from '@/screens/details/DishBlockScreen';
 
 export default function DishBlockRoute() {
@@ -20,6 +21,7 @@ export default function DishBlockRoute() {
       onOpenVersion={(versionId) =>
         router.push({ pathname: '/version/[id]', params: { id: versionId } })
       }
+      onSignIn={() => router.push(authHref('login', returnPath('dish', id)))}
     />
   );
 }

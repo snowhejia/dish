@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type DimensionValue } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Dishy } from '@/components/brand';
 import { BackIcon, ChevronRightIcon } from '@/components/icons';
-import { DetailScreen, FoodImage, IconButton } from '@/components/details';
-import { foodImages } from '@/data/images';
+import { CatalogEntityState, DetailScreen, DishMapCanvas, FoodImage, IconButton } from '@/components/details';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import {
   dishById,
   money,
@@ -15,6 +15,7 @@ import {
   versionsOfDish,
 } from '@/data/mockData';
 import { colors, radii, shadows, sizes } from '@/theme/tokens';
+import { useCatalog } from '@/providers/CatalogProvider';
 
 export type DishMapScreenProps = {
   dishId?: string;
@@ -25,40 +26,41 @@ export type DishMapScreenProps = {
 };
 
 export function DishMapScreen({
-  dishId = 'beef',
+  dishId,
   initialVersionId,
   onBack,
   onSelectVersion,
   onOpenVersion,
 }: DishMapScreenProps) {
+  const { error, loading, refreshCatalog, revision } = useCatalog();
   const insets = useSafeAreaInsets();
   const dish = dishById(dishId);
-  const dishVersions = useMemo(() => versionsOfDish(dish.id), [dish.id]);
-  const fallbackId = dishVersions[0]?.id ?? 'beef-xian';
+  const dishVersions = useMemo(() => versionsOfDish(dish?.id), [dish?.id, revision]);
+  const fallbackId = dishVersions[0]?.id ?? '';
   const startId = dishVersions.some((version) => version.id === initialVersionId) ? initialVersionId! : fallbackId;
   const [selectedId, setSelectedId] = useState(startId);
   const selected = dishVersions.find((version) => version.id === selectedId) ?? dishVersions[0];
-  const minimumPrice = Math.min(...dishVersions.map((version) => version.price));
 
   const selectVersion = (versionId: string) => {
     setSelectedId(versionId);
     onSelectVersion?.(versionId);
   };
 
-  if (!selected) return null;
+  if (!dish || !selected) {
+    return (
+      <CatalogEntityState
+        entity="dish"
+        error={error}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
 
   return (
     <DetailScreen safeTop={false} style={styles.screen}>
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View style={[styles.roadHorizontal, styles.roadTop]} />
-        <View style={[styles.roadHorizontal, styles.roadBottom]} />
-        <View style={[styles.roadVertical, styles.roadLeft]} />
-        <View style={[styles.roadVertical, styles.roadRight]} />
-        <View style={styles.park} />
-        <Text style={styles.parkLabel}>Victoria Park</Text>
-        <View style={styles.campus} />
-        <Text style={styles.campusLabel}>USYD</Text>
-      </View>
+      <DishMapCanvas versions={dishVersions} selectedId={selected.id} onSelect={selectVersion} />
 
       <View style={[styles.mapHeader, { top: insets.top + 6 }]}>
         <IconButton floating onPress={onBack} accessibilityLabel="Back">
@@ -68,35 +70,12 @@ export function DishMapScreen({
           <View style={styles.titleCopy}>
             <Text numberOfLines={1} style={styles.title}>{dish.name}</Text>
             <Text numberOfLines={1} style={styles.subtitle}>
-              {dishVersions.length} {dishVersions.length === 1 ? 'version' : 'versions'} near you · from {money(minimumPrice)}
+              {dishVersions.length} {dishVersions.length === 1 ? 'version' : 'versions'} near you
             </Text>
           </View>
           <Dishy variant="map" size={46} />
         </View>
       </View>
-
-      {dishVersions.map((version) => {
-        const active = version.id === selected.id;
-        return (
-          <Pressable
-            key={version.id}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active }}
-            accessibilityLabel={`${version.restaurant}, ${money(version.price)}`}
-            onPress={() => selectVersion(version.id)}
-            style={({ pressed }) => [
-              styles.pin,
-              { left: (version.mapX ?? '50%') as DimensionValue, top: version.mapY ?? 360 },
-              pressed && styles.pressed,
-            ]}
-          >
-            <View style={[styles.pinBubble, active && styles.pinBubbleActive]}>
-              <Text style={[styles.pinText, active && styles.pinTextActive]}>{money(version.price)}</Text>
-            </View>
-            <View style={[styles.pinPoint, active && styles.pinPointActive]} />
-          </Pressable>
-        );
-      })}
 
       <Pressable
         onPress={() => onOpenVersion?.(selected.id)}
@@ -108,7 +87,7 @@ export function DishMapScreen({
       >
         <View style={styles.cardPhoto}>
           <FoodImage
-            source={foodImages[selected.id]}
+            source={foodImages[selected.id] ?? fallbackFoodImage}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={`${versionMenuName(selected)} at ${selected.restaurant}`}
           />
@@ -131,74 +110,6 @@ const styles = StyleSheet.create({
   screen: {
     overflow: 'hidden',
     backgroundColor: colors.map,
-  },
-  roadHorizontal: {
-    position: 'absolute',
-    left: -40,
-    width: 520,
-    backgroundColor: colors.white,
-  },
-  roadTop: {
-    top: 120,
-    height: 34,
-    transform: [{ rotate: '-8deg' }],
-  },
-  roadBottom: {
-    top: 430,
-    height: 26,
-    transform: [{ rotate: '5deg' }],
-  },
-  roadVertical: {
-    position: 'absolute',
-    top: -40,
-    height: 900,
-    backgroundColor: colors.white,
-  },
-  roadLeft: {
-    left: 120,
-    width: 30,
-    transform: [{ rotate: '6deg' }],
-  },
-  roadRight: {
-    left: 300,
-    width: 22,
-    transform: [{ rotate: '-4deg' }],
-  },
-  park: {
-    position: 'absolute',
-    left: 150,
-    top: 352,
-    width: 170,
-    height: 140,
-    borderRadius: radii.button,
-    backgroundColor: colors.mapPark,
-  },
-  parkLabel: {
-    position: 'absolute',
-    left: 168,
-    top: 364,
-    color: '#7C9578',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
-  },
-  campus: {
-    position: 'absolute',
-    left: 20,
-    top: 520,
-    width: 120,
-    height: 110,
-    borderRadius: radii.control,
-    backgroundColor: colors.mapCampus,
-  },
-  campusLabel: {
-    position: 'absolute',
-    left: 32,
-    top: 532,
-    color: colors.muted,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
   },
   mapHeader: {
     position: 'absolute',
@@ -237,47 +148,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     marginTop: 1,
-  },
-  pin: {
-    position: 'absolute',
-    zIndex: 15,
-    alignItems: 'center',
-    transform: [{ translateX: -27 }, { translateY: -38 }],
-  },
-  pinBubble: {
-    minWidth: 54,
-    minHeight: 30,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radii.pill,
-    backgroundColor: colors.surface,
-    ...shadows.floating,
-  },
-  pinBubbleActive: {
-    backgroundColor: colors.purple,
-  },
-  pinText: {
-    color: colors.ink,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  pinTextActive: {
-    color: colors.white,
-  },
-  pinPoint: {
-    width: 8,
-    height: 8,
-    marginTop: -3,
-    borderRadius: 1,
-    backgroundColor: colors.surface,
-    transform: [{ rotate: '45deg' }],
-  },
-  pinPointActive: {
-    backgroundColor: colors.purple,
   },
   selectionCard: {
     position: 'absolute',

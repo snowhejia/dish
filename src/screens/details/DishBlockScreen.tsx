@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { CompareIcon, MapIcon } from '@/components/icons';
+import { BookmarkIcon, CompareIcon, MapIcon } from '@/components/icons';
 import {
   ActionButton,
+  CatalogEntityState,
   DetailHeader,
   DetailScreen,
   DetailScroll,
@@ -13,6 +14,8 @@ import {
   VersionRow,
 } from '@/components/details';
 import { dishById, money, versionsOfDish } from '@/data/mockData';
+import { useAuth } from '@/providers/AuthProvider';
+import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes, type } from '@/theme/tokens';
 
 export type DishBlockScreenProps = {
@@ -21,21 +24,38 @@ export type DishBlockScreenProps = {
   onOpenVersion?: (versionId: string) => void;
   onOpenMap?: (dishId: string) => void;
   onOpenCompare?: (dishId: string, versionIds: string[]) => void;
+  onSignIn?: () => void;
 };
 
 export function DishBlockScreen({
-  dishId = 'beef',
+  dishId,
   onBack,
   onOpenVersion,
   onOpenMap,
   onOpenCompare,
+  onSignIn,
 }: DishBlockScreenProps) {
+  const { isAuthenticated } = useAuth();
+  const { error, loading, refreshCatalog, revision, isSaved, toggleSaved } = useCatalog();
   const dish = dishById(dishId);
-  const versions = useMemo(() => versionsOfDish(dish.id), [dish.id]);
+  const versions = useMemo(() => versionsOfDish(dish?.id), [dish?.id, revision]);
   const [compareMode, setCompareMode] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
-  const minimumPrice = Math.min(...versions.map((version) => version.price));
   const compareAvailable = versions.length >= 2;
+  const saved = dish ? isSaved('dish', dish.id) : false;
+
+  const toggleDishSaved = async () => {
+    if (!dish) return;
+    if (!isAuthenticated) {
+      onSignIn?.();
+      return;
+    }
+    try {
+      await toggleSaved('dish', dish.id);
+    } catch (error) {
+      Alert.alert('Could not update Saved', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
 
   const toggleCompare = () => {
     setCompareMode((current) => !current);
@@ -56,17 +76,32 @@ export function DishBlockScreen({
 
   const canCompare = selected.length >= 2;
 
+  if (!dish) {
+    return (
+      <CatalogEntityState
+        entity="dish"
+        error={error}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
+
   return (
     <DetailScreen>
       <DetailHeader
         title={dish.name}
         onBack={onBack}
         translucent
-        right={(
+        right={<View style={styles.headerActions}>
+          <IconButton onPress={() => void toggleDishSaved()} accessibilityLabel={saved ? 'Remove saved dish' : 'Save dish'}>
+            <BookmarkIcon size={18} color={colors.purpleDark} strokeWidth={1.7} filled={saved} />
+          </IconButton>
           <IconButton onPress={() => onOpenMap?.(dish.id)} accessibilityLabel="Open dish map">
             <MapIcon size={18} color={colors.purpleDark} strokeWidth={1.7} />
           </IconButton>
-        )}
+        </View>}
       />
 
       <DetailScroll bottomInset={compareMode ? 118 : 146}>
@@ -74,7 +109,7 @@ export function DishBlockScreen({
           <PixelEyebrow purple style={styles.blockEyebrow}>DISH BLOCK</PixelEyebrow>
           <Text style={styles.title}>{dish.name}</Text>
           <Text style={styles.subline}>
-            {versions.length} {versions.length === 1 ? 'version' : 'versions'} near you · from {money(minimumPrice)}
+            {versions.length} {versions.length === 1 ? 'version' : 'versions'} near you
           </Text>
           <View style={styles.tools}>
             {compareAvailable ? (
@@ -132,6 +167,11 @@ const styles = StyleSheet.create({
   intro: {
     paddingHorizontal: sizes.pageGutter,
     paddingTop: 18,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
   },
   blockEyebrow: {
     fontSize: 9,

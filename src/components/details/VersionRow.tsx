@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CheckIcon, ChevronRightIcon } from '@/components/icons';
-import { foodImages } from '@/data/images';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import { money, versionDistance, versionMenuName, type DishVersion } from '@/data/mockData';
 import { colors, radii, sizes } from '@/theme/tokens';
 
@@ -42,7 +42,7 @@ export function VersionRow({
         </View>
       ) : null}
       <View style={[styles.imageFrame, { width: imageSize, height: imageSize }, compact && styles.imageCompact]}>
-        <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
+        <FoodImage source={foodImages[version.id] ?? fallbackFoodImage} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(version)} />
       </View>
       <View style={styles.copy}>
         <Text numberOfLines={1} style={styles.restaurant}>{compact ? versionMenuName(version) : version.restaurant}</Text>

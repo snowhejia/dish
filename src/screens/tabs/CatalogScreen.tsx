@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ImageSourcePropType,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Dishy } from '@/components/brand';
@@ -12,58 +19,134 @@ import {
   SearchField,
   SegmentedControl,
 } from '@/components/tabs';
-import { foodImages } from '@/data/images';
-import { dishes, money, restaurants, versionDistance, versions, versionsOfDish } from '@/data/mockData';
+import { fallbackFoodImage, foodImages } from '@/data/images';
+import { money, versionDistance, type DishVersion } from '@/data/mockData';
+import {
+  hasKnownDistance,
+  isVersionOpenNow,
+  normalizeCatalogText,
+  searchableDishText,
+  searchableRestaurantText,
+  versionMatchesKind,
+  type DishKindFilter,
+} from '@/lib/catalogFilters';
+import { useCatalog } from '@/providers/CatalogProvider';
 import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type CatalogTab = 'dishes' | 'restaurants';
+type PriceFilter = 15 | 20 | 30;
+type DistanceFilter = 500 | 1000 | 2000;
+
+type CatalogRowModel = {
+  key: string;
+  image: ImageSourcePropType;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+};
 
 const SEGMENTS = [
   { label: 'Dishes', value: 'dishes' },
   { label: 'Restaurants', value: 'restaurants' },
 ] as const;
 
+const PRICE_OPTIONS = [15, 20, 30] as const;
+const DISTANCE_OPTIONS = [500, 1000, 2000] as const;
+const DISH_KIND_OPTIONS = ['Soupy', 'Spicy'] as const;
+
 export type CatalogScreenProps = {
   onOpenDish: (dishId: string) => void;
-  onOpenVersion: (versionId: string) => void;
+  onOpenRestaurant: (restaurantName: string, versionId?: string) => void;
 };
 
-export function CatalogScreen({ onOpenDish, onOpenVersion }: CatalogScreenProps) {
+export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenProps) {
   const insets = useSafeAreaInsets();
+  const { snapshot, loading, error } = useCatalog();
   const [tab, setTab] = useState<CatalogTab>('dishes');
-  const filters = tab === 'dishes' ? ['Cuisine', 'Dish type', 'Price', 'Distance'] : ['Cuisine', 'Open now', 'Distance'];
+  const [search, setSearch] = useState('');
+  const [cuisine, setCuisine] = useState<string | null>(null);
+  const [dishKind, setDishKind] = useState<DishKindFilter | null>(null);
+  const [price, setPrice] = useState<PriceFilter | null>(null);
+  const [distance, setDistance] = useState<DistanceFilter | null>(null);
+  const [openNow, setOpenNow] = useState(false);
 
-  const rows = useMemo(() => {
+  const cuisineOptions = useMemo(() => Array.from(new Set([
+    ...snapshot.dishes.map((dish) => dish.cuisine),
+    ...snapshot.versions.map((version) => version.cuisine),
+  ].filter(Boolean))).sort(), [snapshot]);
+
+  const rows = useMemo<CatalogRowModel[]>(() => {
+    const query = normalizeCatalogText(search);
+
     if (tab === 'dishes') {
-      return dishes.map((dish) => {
-        const dishVersions = versionsOfDish(dish.id);
-        const from = Math.min(...dishVersions.map((version) => version.price));
-        return {
+      return snapshot.dishes.flatMap((dish): CatalogRowModel[] => {
+        const allVersions = snapshot.versions.filter((version) => version.dishId === dish.id);
+        if (query && !searchableDishText(dish, allVersions).includes(query)) return [];
+
+        const matchingVersions = allVersions.filter((version) => {
+          if (cuisine && dish.cuisine !== cuisine && version.cuisine !== cuisine) return false;
+          if (dishKind && !versionMatchesKind(dish, version, dishKind)) return false;
+          if (price && version.price >= price) return false;
+          if (distance && (!hasKnownDistance(version) || version.metres > distance)) return false;
+          return true;
+        });
+        const first = matchingVersions[0];
+        if (!first) return [];
+
+        const from = Math.min(...matchingVersions.map((version) => version.price));
+        return [{
           key: dish.id,
-          image: foodImages[dishVersions[0].id],
+          image: foodImages[first.id] ?? fallbackFoodImage,
           title: dish.name,
-          subtitle: `${dish.cuisine} · ${dishVersions.length} ${dishVersions.length === 1 ? 'version' : 'versions'} · from ${money(from)}`,
+          subtitle: `${dish.cuisine} · ${matchingVersions.length} ${matchingVersions.length === 1 ? 'version' : 'versions'} · from ${money(from)}`,
           onPress: () => onOpenDish(dish.id),
-        };
+        }];
       });
     }
 
-    return restaurants.map((restaurant) => {
-      const restaurantVersions = versions.filter((version) => version.restaurant === restaurant);
-      const first = restaurantVersions[0];
-      return {
-        key: restaurant,
-        image: foodImages[first.id],
-        title: restaurant,
-        subtitle: `${first.cuisine} · ${versionDistance(first)} · ${restaurantVersions.length} ${restaurantVersions.length === 1 ? 'dish rated' : 'dishes rated'}`,
-        onPress: () => onOpenVersion(first.id),
-      };
+    return groupRestaurants(snapshot.versions).flatMap((restaurant): CatalogRowModel[] => {
+      if (query && !searchableRestaurantText(restaurant.name, restaurant.versions).includes(query)) return [];
+
+      const matchingVersions = restaurant.versions.filter((version) => {
+        if (cuisine && version.cuisine !== cuisine) return false;
+        if (openNow && !isVersionOpenNow(version)) return false;
+        if (distance && (!hasKnownDistance(version) || version.metres > distance)) return false;
+        return true;
+      });
+      const first = matchingVersions[0];
+      if (!first) return [];
+
+      return [{
+        key: restaurant.key,
+        image: foodImages[first.id] ?? fallbackFoodImage,
+        title: restaurant.name,
+        subtitle: `${first.cuisine} · ${versionDistance(first)} · ${matchingVersions.length} ${matchingVersions.length === 1 ? 'dish rated' : 'dishes rated'}`,
+        onPress: () => onOpenRestaurant(restaurant.name, first.id),
+      }];
     });
-  }, [onOpenDish, onOpenVersion, tab]);
+  }, [cuisine, dishKind, distance, onOpenDish, onOpenRestaurant, openNow, price, search, snapshot, tab]);
+
+  const activeFilterCount = [
+    Boolean(cuisine),
+    Boolean(distance),
+    tab === 'dishes' && Boolean(dishKind),
+    tab === 'dishes' && Boolean(price),
+    tab === 'restaurants' && openNow,
+  ].filter(Boolean).length;
+
+  const clearFilters = () => {
+    setSearch('');
+    setCuisine(null);
+    setDishKind(null);
+    setPrice(null);
+    setDistance(null);
+    setOpenNow(false);
+  };
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >
@@ -75,37 +158,130 @@ export function CatalogScreen({ onOpenDish, onOpenVersion }: CatalogScreenProps)
           </View>
           <Dishy size={58} variant="discover" />
         </View>
-        <SearchField placeholder="Search all dishes & restaurants" style={styles.search} />
+        <SearchField
+          onChangeText={setSearch}
+          placeholder="Search all dishes & restaurants"
+          style={styles.search}
+          value={search}
+        />
         <SegmentedControl onChange={setTab} options={SEGMENTS} style={styles.segments} value={tab} />
       </View>
 
       <HorizontalChipList style={styles.filterContent}>
-        {filters.map((label) => (
-          <View key={label} style={styles.filterChip}>
-            <Text style={styles.filterLabel}>{label}</Text>
-            <ChevronDownIcon color={colors.muted} size={9} strokeWidth={1.6} />
-          </View>
-        ))}
+        <FilterChip
+          active={Boolean(cuisine)}
+          label={cuisine ?? 'Cuisine'}
+          onPress={() => setCuisine(nextOption(cuisine, cuisineOptions))}
+        />
+        {tab === 'dishes' ? (
+          <>
+            <FilterChip
+              active={Boolean(dishKind)}
+              label={dishKind ?? 'Dish type'}
+              onPress={() => setDishKind(nextOption(dishKind, DISH_KIND_OPTIONS))}
+            />
+            <FilterChip
+              active={Boolean(price)}
+              label={price ? `Under $${price}` : 'Price'}
+              onPress={() => setPrice(nextOption(price, PRICE_OPTIONS))}
+            />
+          </>
+        ) : (
+          <FilterChip
+            active={openNow}
+            label="Open now"
+            onPress={() => setOpenNow((value) => !value)}
+          />
+        )}
+        <FilterChip
+          active={Boolean(distance)}
+          label={distance ? `Within ${formatDistance(distance)}` : 'Distance'}
+          onPress={() => setDistance(nextOption(distance, DISTANCE_OPTIONS))}
+        />
       </HorizontalChipList>
 
-      <PixelEyebrow style={styles.eyebrow}>
-        {tab === 'dishes' ? `ALL DISHES · ${dishes.length}` : `ALL RESTAURANTS · ${restaurants.length}`}
-      </PixelEyebrow>
-
-      <View style={styles.list}>
-        {rows.map((row) => (
-          <CatalogRow
-            image={row.image}
-            key={row.key}
-            onPress={row.onPress}
-            subtitle={row.subtitle}
-            title={row.title}
-          />
-        ))}
+      <View style={styles.resultHeading}>
+        <PixelEyebrow>
+          {tab === 'dishes' ? `DISHES · ${rows.length}` : `RESTAURANTS · ${rows.length}`}
+        </PixelEyebrow>
+        {activeFilterCount || search.trim() ? (
+          <Pressable accessibilityRole="button" onPress={clearFilters}>
+            <Text style={styles.clearLabel}>Clear</Text>
+          </Pressable>
+        ) : null}
       </View>
+
+      {loading ? <Text style={styles.status}>Refreshing the catalog…</Text> : null}
+      {!loading && error ? <Text style={styles.status}>Showing the saved catalog while live data reconnects.</Text> : null}
+
+      {rows.length ? (
+        <View style={styles.list}>
+          {rows.map((row) => (
+            <CatalogRow
+              image={row.image}
+              key={row.key}
+              onPress={row.onPress}
+              subtitle={row.subtitle}
+              title={row.title}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={styles.empty}>
+          <Text style={styles.emptyTitle}>Nothing matches yet</Text>
+          <Text style={styles.emptyBody}>Try a broader search or clear the active filters.</Text>
+          <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.emptyButton}>
+            <Text style={styles.emptyButtonLabel}>Show everything</Text>
+          </Pressable>
+        </View>
+      )}
       <BottomTabSpacer />
     </ScrollView>
   );
+}
+
+function FilterChip({
+  active,
+  label,
+  onPress,
+}: {
+  active: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.filterChip, active && styles.filterChipActive]}
+    >
+      <Text numberOfLines={1} style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
+      <ChevronDownIcon color={active ? colors.purple : colors.muted} size={9} strokeWidth={1.6} />
+    </Pressable>
+  );
+}
+
+function nextOption<Value>(current: Value | null, options: readonly Value[]): Value | null {
+  if (!options.length) return null;
+  if (current === null) return options[0] ?? null;
+  const nextIndex = options.indexOf(current) + 1;
+  return nextIndex >= options.length ? null : options[nextIndex] ?? null;
+}
+
+function formatDistance(metres: DistanceFilter) {
+  return metres >= 1000 ? `${metres / 1000} km` : `${metres} m`;
+}
+
+function groupRestaurants(items: DishVersion[]) {
+  const groups = new Map<string, { key: string; name: string; versions: DishVersion[] }>();
+  items.forEach((version) => {
+    const key = version.restaurantId ?? normalizeCatalogText(version.restaurant);
+    const group = groups.get(key) ?? { key, name: version.restaurant, versions: [] };
+    group.versions.push(version);
+    groups.set(key, group);
+  });
+  return Array.from(groups.values());
 }
 
 const styles = StyleSheet.create({
@@ -155,8 +331,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: spacing[5],
+    maxWidth: 170,
     paddingHorizontal: spacing[12],
     paddingVertical: spacing[7],
+  },
+  filterChipActive: {
+    backgroundColor: colors.lavender,
+    borderColor: colors.borderStrong,
   },
   filterLabel: {
     color: colors.body,
@@ -164,13 +345,63 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 16,
   },
-  eyebrow: {
+  filterLabelActive: {
+    color: colors.purpleDark,
+  },
+  resultHeading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingBottom: spacing[8],
     paddingHorizontal: sizes.pageGutter,
     paddingTop: spacing[18],
   },
+  clearLabel: {
+    color: colors.purple,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  status: {
+    color: colors.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    paddingHorizontal: sizes.pageGutter,
+    paddingVertical: spacing[5],
+  },
   list: {
     paddingBottom: spacing[26],
     paddingHorizontal: sizes.pageGutter,
+  },
+  empty: {
+    alignItems: 'center',
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: spacing[26],
+  },
+  emptyTitle: {
+    color: colors.ink,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 21,
+  },
+  emptyBody: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: spacing[5],
+    textAlign: 'center',
+  },
+  emptyButton: {
+    backgroundColor: colors.lavender,
+    borderRadius: radii.pill,
+    marginTop: spacing[14],
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[8],
+  },
+  emptyButtonLabel: {
+    color: colors.purpleDark,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 16,
   },
 });

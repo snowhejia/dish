@@ -4,6 +4,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type StyleProp,
   type TextStyle,
@@ -28,25 +29,56 @@ export function PixelEyebrow({
 export function SearchField({
   placeholder,
   onPress,
+  value,
+  onChangeText,
+  onSubmitEditing,
+  autoFocus = false,
   surface = 'control',
   style,
 }: {
   placeholder: string;
   onPress?: () => void;
+  value?: string;
+  onChangeText?: (value: string) => void;
+  onSubmitEditing?: () => void;
+  autoFocus?: boolean;
   surface?: 'control' | 'white';
   style?: StyleProp<ViewStyle>;
 }) {
+  const rootStyle = [
+    styles.search,
+    surface === 'white' ? styles.searchWhite : styles.searchControl,
+    surface === 'white' ? shadows.search : undefined,
+    style,
+  ];
+
+  if (onChangeText) {
+    return (
+      <View accessibilityRole="search" style={rootStyle}>
+        <SearchIcon color={colors.muted} size={16} strokeWidth={1.7} />
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus={autoFocus}
+          clearButtonMode="while-editing"
+          onChangeText={onChangeText}
+          onSubmitEditing={onSubmitEditing}
+          placeholder={placeholder}
+          placeholderTextColor={colors.muted}
+          returnKeyType="search"
+          style={[styles.searchPlaceholder, styles.searchInput]}
+          value={value ?? ''}
+        />
+      </View>
+    );
+  }
+
   return (
     <Pressable
       accessibilityRole={onPress ? 'button' : undefined}
       disabled={!onPress}
       onPress={onPress}
-      style={[
-        styles.search,
-        surface === 'white' ? styles.searchWhite : styles.searchControl,
-        surface === 'white' ? shadows.search : undefined,
-        style,
-      ]}
+      style={rootStyle}
     >
       <SearchIcon color={colors.muted} size={16} strokeWidth={1.7} />
       <Text numberOfLines={1} style={styles.searchPlaceholder}>
@@ -134,6 +166,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     lineHeight: 17,
+  },
+  searchInput: {
+    margin: 0,
+    padding: 0,
   },
   segmented: {
     backgroundColor: colors.controlSurface,

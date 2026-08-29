@@ -8,7 +8,10 @@ export default function CatalogRoute() {
   return (
     <CatalogScreen
       onOpenDish={(id) => router.push({ pathname: '/dish/[id]', params: { id } })}
-      onOpenVersion={(id) => router.push({ pathname: '/version/[id]', params: { id } })}
+      onOpenRestaurant={(name, version) => router.push({
+        pathname: '/restaurant/[name]',
+        params: { name, ...(version ? { version } : {}) },
+      })}
     />
   );
 }

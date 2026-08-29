@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Dish, DishVersion } from '@/data/mockData';
 import { money, versionDistance, versionMenuName } from '@/data/mockData';
-import { foodImages } from '@/data/images';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import { colors, fonts, radii, spacing } from '@/theme/tokens';
 
 export function DiscoverVersionCard({
@@ -28,7 +28,7 @@ export function DiscoverVersionCard({
       style={{ width }}
     >
       <View style={styles.imageFrame}>
-        <Image contentFit="cover" source={foodImages[version.id]} style={StyleSheet.absoluteFill} />
+        <Image contentFit="cover" source={foodImages[version.id] ?? fallbackFoodImage} style={StyleSheet.absoluteFill} />
         {moreCount > 0 ? (
           <BlurView intensity={18} tint="dark" style={styles.moreBadge}>
             <Text style={styles.moreLabel}>+{moreCount} MORE</Text>

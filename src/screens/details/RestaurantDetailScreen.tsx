@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackIcon, DirectionsIcon } from '@/components/icons';
 import {
   ActionButton,
+  CatalogEntityState,
   DetailScreen,
   FoodImage,
   HeroFade,
@@ -12,40 +13,56 @@ import {
   PixelEyebrow,
   VersionRow,
 } from '@/components/details';
-import { foodImages } from '@/data/images';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import { versionAvailability, versionById, versionDistance, versions } from '@/data/mockData';
 import { colors, sizes, type } from '@/theme/tokens';
+import { useCatalog } from '@/providers/CatalogProvider';
 
 export type RestaurantDetailScreenProps = {
   restaurantName?: string;
   versionId?: string;
   onBack?: () => void;
   onOpenVersion?: (versionId: string) => void;
-  onGetDirections?: (restaurantName: string) => void;
+  onGetDirections?: (versionId: string) => void;
+  onCallPhone?: (phone: string) => void;
 };
 
 export function RestaurantDetailScreen({
   restaurantName,
-  versionId = 'beef-xian',
+  versionId,
   onBack,
   onOpenVersion,
   onGetDirections,
+  onCallPhone,
 }: RestaurantDetailScreenProps) {
+  const { error, loading, refreshCatalog, revision } = useCatalog();
   const insets = useSafeAreaInsets();
   const sourceVersion = versionById(versionId);
-  const resolvedName = restaurantName ?? sourceVersion.restaurant;
+  const resolvedName = restaurantName?.trim() || sourceVersion?.restaurant;
   const restaurantVersions = useMemo(
-    () => versions.filter((version) => version.restaurant === resolvedName),
-    [resolvedName],
+    () => resolvedName ? versions.filter((version) => version.restaurant === resolvedName) : [],
+    [resolvedName, revision],
   );
-  const heroVersion = restaurantVersions.find((version) => version.id === versionId) ?? restaurantVersions[0] ?? sourceVersion;
+  const heroVersion = restaurantVersions.find((version) => version.id === versionId) ?? restaurantVersions[0];
+
+  if (!resolvedName || !heroVersion) {
+    return (
+      <CatalogEntityState
+        entity="restaurant"
+        error={error}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
 
   return (
     <DetailScreen safeTop={false}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.hero}>
           <FoodImage
-            source={foodImages[heroVersion.id]}
+            source={foodImages[heroVersion.id] ?? fallbackFoodImage}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={resolvedName}
           />
@@ -64,20 +81,23 @@ export function RestaurantDetailScreen({
           <Text style={styles.title}>{resolvedName}</Text>
           <View style={styles.hoursRow}>
             <View style={styles.openChip}><Text style={styles.openText}>{versionAvailability(heroVersion)}</Text></View>
-            <Text style={styles.until}>{heroVersion.source === 'real' ? 'Current venue schedule' : 'until 9:30 pm'}</Text>
           </View>
           <Text style={styles.address}>
-            {heroVersion.address ?? '142 King Street, Newtown NSW 2042'}{`\n`}
+            {heroVersion.address ?? 'Address not provided'}{`\n`}
             <Text style={styles.meta}>
-              {heroVersion.cuisine} · {versionDistance(heroVersion)}{heroVersion.source === 'real' ? '' : ' from campus'}
+              {heroVersion.cuisine} · {versionDistance(heroVersion)}
             </Text>
           </Text>
           {heroVersion.hours ? <Text style={styles.contact}>{heroVersion.hours}</Text> : null}
-          {heroVersion.phone ? <Text style={styles.contact}>{heroVersion.phone}</Text> : null}
+          {heroVersion.phone ? (
+            <Pressable onPress={() => onCallPhone?.(heroVersion.phone!)}>
+              <Text style={[styles.contact, styles.contactLink]}>{heroVersion.phone}</Text>
+            </Pressable>
+          ) : null}
           <ActionButton
             icon={<DirectionsIcon size={17} color={colors.white} strokeWidth={1.8} />}
             style={styles.directions}
-            onPress={() => onGetDirections?.(resolvedName)}
+            onPress={() => onGetDirections?.(heroVersion.id)}
           >
             Get directions
           </ActionButton>
@@ -146,11 +166,6 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '600',
   },
-  until: {
-    color: colors.muted,
-    fontSize: 12.5,
-    lineHeight: 16,
-  },
   address: {
     color: colors.body,
     fontSize: 13.5,
@@ -165,6 +180,10 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     marginTop: 7,
+  },
+  contactLink: {
+    color: colors.purpleLogo,
+    fontWeight: '600',
   },
   directions: {
     marginTop: 15,

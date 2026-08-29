@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BackIcon, ChevronRightIcon, DirectionsIcon, ReviewIcon } from '@/components/icons';
+import { BackIcon, BookmarkIcon, ChevronRightIcon, DirectionsIcon, ReviewIcon } from '@/components/icons';
 import {
   ActionButton,
+  CatalogEntityState,
   DetailScreen,
   FoodImage,
   HeroFade,
@@ -13,9 +14,8 @@ import {
   StickyFooter,
   Tag,
 } from '@/components/details';
-import { foodImages } from '@/data/images';
+import { fallbackFoodImage, foodImages } from '@/data/images';
 import {
-  defaultReviews,
   dishForVersion,
   money,
   reviewsByVersion,
@@ -28,6 +28,8 @@ import {
   type DishVersion,
 } from '@/data/mockData';
 import { colors, radii, shadows, sizes, type } from '@/theme/tokens';
+import { useAuth } from '@/providers/AuthProvider';
+import { useCatalog } from '@/providers/CatalogProvider';
 
 export type VersionDetailScreenProps = {
   versionId?: string;
@@ -37,41 +39,78 @@ export type VersionDetailScreenProps = {
   onOpenVersion?: (versionId: string) => void;
   onSeeAllVersions?: (dishId: string) => void;
   onGetDirections?: (versionId: string) => void;
+  onSignIn?: () => void;
 };
 
 export function VersionDetailScreen({
-  versionId = 'beef-xian',
+  versionId,
   onBack,
   onOpenRestaurant,
   onOpenReview,
   onOpenVersion,
   onSeeAllVersions,
   onGetDirections,
+  onSignIn,
 }: VersionDetailScreenProps) {
+  const { isAuthenticated } = useAuth();
+  const { error, loading, refreshCatalog, revision, isSaved, toggleSaved } = useCatalog();
   const insets = useSafeAreaInsets();
   const version = versionById(versionId);
-  const dish = dishForVersion(version);
+  const dish = version ? dishForVersion(version) : undefined;
   const [galleryIndex, setGalleryIndex] = useState(0);
-  const galleryCount = version.galleryCount ?? 4;
-  const reviews = reviewsByVersion[version.id] ?? defaultReviews;
+  const gallerySources = version
+    ? version.gallery?.length
+      ? version.gallery.map((uri) => ({ uri }))
+      : [foodImages[version.id] ?? fallbackFoodImage]
+    : [];
+  const galleryCount = gallerySources.length;
+  const safeGalleryIndex = Math.min(galleryIndex, Math.max(0, galleryCount - 1));
+  const reviews = version ? reviewsByVersion[version.id] ?? [] : [];
   const otherVersions = useMemo(
-    () => versionsOfDish(version.dishId).filter((item) => item.id !== version.id),
-    [version.dishId, version.id],
+    () => version ? versionsOfDish(version.dishId).filter((item) => item.id !== version.id) : [],
+    [revision, version?.dishId, version?.id],
   );
   const sameRestaurant = useMemo(
-    () => versions.filter((item) => item.restaurant === version.restaurant && item.id !== version.id),
-    [version.id, version.restaurant],
+    () => version
+      ? versions.filter((item) => item.restaurant === version.restaurant && item.id !== version.id)
+      : [],
+    [revision, version?.id, version?.restaurant],
   );
+  const saved = version ? isSaved('version', version.id) : false;
+
+  const toggleVersionSaved = async () => {
+    if (!version) return;
+    if (!isAuthenticated) {
+      onSignIn?.();
+      return;
+    }
+    try {
+      await toggleSaved('version', version.id);
+    } catch (error) {
+      Alert.alert('Could not update Saved', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
+
+  if (!version || !dish) {
+    return (
+      <CatalogEntityState
+        entity="dish version"
+        error={error}
+        loading={loading}
+        onBack={onBack}
+        onRetry={() => void refreshCatalog()}
+      />
+    );
+  }
 
   return (
     <DetailScreen safeTop={false}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <View style={styles.hero}>
           <FoodImage
-            source={foodImages[version.id]}
+            source={gallerySources[safeGalleryIndex] ?? fallbackFoodImage}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={`${versionMenuName(version)} at ${version.restaurant}`}
-            contentPosition={galleryPositions[galleryIndex % galleryPositions.length]}
           />
           <HeroFade />
           <IconButton
@@ -82,19 +121,27 @@ export function VersionDetailScreen({
           >
             <BackIcon size={15} color={colors.ink} strokeWidth={1.9} />
           </IconButton>
+          <IconButton
+            floating
+            onPress={() => void toggleVersionSaved()}
+            accessibilityLabel={saved ? 'Remove saved version' : 'Save version'}
+            style={[styles.heroSave, { top: insets.top + 6 }]}
+          >
+            <BookmarkIcon size={17} color={colors.purpleDark} strokeWidth={1.8} filled={saved} />
+          </IconButton>
           <View style={styles.galleryLabel}>
-            <Text style={styles.galleryLabelText}>{galleryIndex + 1} / {galleryCount}</Text>
+            <Text style={styles.galleryLabelText}>{safeGalleryIndex + 1} / {galleryCount}</Text>
           </View>
-          <View style={styles.galleryDots}>
+          {galleryCount > 1 ? <View style={styles.galleryDots}>
             {Array.from({ length: galleryCount }, (_, index) => index).map((index) => (
               <Pressable
                 key={index}
                 hitSlop={7}
                 onPress={() => setGalleryIndex(index)}
-                style={[styles.galleryDot, index === galleryIndex ? styles.galleryDotActive : styles.galleryDotInactive]}
+                style={[styles.galleryDot, index === safeGalleryIndex ? styles.galleryDotActive : styles.galleryDotInactive]}
               />
             ))}
-          </View>
+          </View> : null}
         </View>
 
         <View style={styles.summary}>
@@ -130,7 +177,7 @@ export function VersionDetailScreen({
 
         <View style={styles.reviewsSection}>
           <PixelEyebrow>RECENT REVIEWS</PixelEyebrow>
-          <View style={styles.reviewList}>
+          {reviews.length ? <View style={styles.reviewList}>
             {reviews.map((review, index) => (
               <View key={`${review.name}-${index}`} style={styles.reviewCard}>
                 <View style={styles.reviewTop}>
@@ -144,7 +191,7 @@ export function VersionDetailScreen({
                 <Text style={styles.reviewText}>{review.text}</Text>
               </View>
             ))}
-          </View>
+          </View> : <Text style={styles.emptyReviews}>No reviews yet. Be the first to share whether you would eat it again.</Text>}
         </View>
 
         <RelatedStrip
@@ -220,7 +267,7 @@ function RelatedStrip({
               style={({ pressed }) => [styles.relatedCard, pressed && styles.pressed]}
             >
               <View style={styles.relatedImage}>
-                <FoodImage source={foodImages[item.id]} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(item)} />
+                <FoodImage source={foodImages[item.id] ?? fallbackFoodImage} style={StyleSheet.absoluteFill} accessibilityLabel={versionMenuName(item)} />
               </View>
               <Text numberOfLines={2} style={styles.relatedName}>{showDishName ? versionMenuName(item) : item.restaurant}</Text>
               <Text style={styles.relatedMeta}>{money(item.price)} · {item.wouldEatAgain}%</Text>
@@ -231,8 +278,6 @@ function RelatedStrip({
     </View>
   );
 }
-
-const galleryPositions = ['center', 'top', 'bottom', 'left'] as const;
 
 const styles = StyleSheet.create({
   scrollContent: {
@@ -247,6 +292,11 @@ const styles = StyleSheet.create({
   heroBack: {
     position: 'absolute',
     left: sizes.navGutter,
+    zIndex: 5,
+  },
+  heroSave: {
+    position: 'absolute',
+    right: sizes.navGutter,
     zIndex: 5,
   },
   galleryLabel: {
@@ -373,6 +423,12 @@ const styles = StyleSheet.create({
   reviewList: {
     gap: 12,
     marginTop: 12,
+  },
+  emptyReviews: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    marginTop: 11,
   },
   reviewCard: {
     paddingVertical: 13,
