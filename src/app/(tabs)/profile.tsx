@@ -13,8 +13,10 @@ export default function ProfileRoute() {
       onOpenContributions={() => router.push('/profile/contributions')}
       onOpenLogin={() => router.push(authHref('login'))}
       onOpenNotifications={() => router.push('/profile/notifications')}
+      onOpenPhotos={() => router.push('/profile/photos')}
       onOpenRegister={() => router.push(authHref('register'))}
       onOpenReviews={() => router.push('/profile/reviews')}
+      onOpenVersionsAdded={() => router.push('/profile/versions')}
     />
   );
 }

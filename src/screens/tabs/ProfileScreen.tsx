@@ -15,7 +15,9 @@ export type ProfileScreenProps = {
   onOpenReviews: () => void;
   onOpenContributions: () => void;
   onOpenNotifications: () => void;
+  onOpenPhotos: () => void;
   onOpenAccountSettings: () => void;
+  onOpenVersionsAdded: () => void;
   onOpenLogin: () => void;
   onOpenRegister: () => void;
 };
@@ -25,7 +27,9 @@ export function ProfileScreen({
   onOpenAddVersion,
   onOpenContributions,
   onOpenNotifications,
+  onOpenPhotos,
   onOpenReviews,
+  onOpenVersionsAdded,
   onOpenLogin,
   onOpenRegister,
 }: ProfileScreenProps) {
@@ -92,8 +96,8 @@ export function ProfileScreen({
 
   const stats = [
     { label: 'Reviews', value: user.stats?.reviews ?? 0, onPress: onOpenReviews },
-    { label: 'Photos', value: user.stats?.photos ?? 0, onPress: undefined },
-    { label: 'Versions added', value: user.stats?.versionsAdded ?? 0, onPress: undefined },
+    { label: 'Photos', value: user.stats?.photos ?? 0, onPress: onOpenPhotos },
+    { label: 'Versions added', value: user.stats?.versionsAdded ?? 0, onPress: onOpenVersionsAdded },
   ];
 
   return (
@@ -132,8 +136,8 @@ export function ProfileScreen({
           );
           return stat.onPress ? (
             <Pressable
-              accessibilityHint="Opens your review history"
-              accessibilityLabel={`${stat.value} reviews`}
+              accessibilityHint={`Opens your ${stat.label.toLowerCase()}`}
+              accessibilityLabel={`${stat.value} ${stat.label.toLowerCase()}`}
               accessibilityRole="button"
               key={stat.label}
               onPress={stat.onPress}

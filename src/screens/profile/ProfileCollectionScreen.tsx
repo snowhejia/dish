@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Image } from 'expo-image';
 import {
   ActivityIndicator,
   Pressable,
@@ -21,6 +22,7 @@ export type ResourcePresentation = {
   title: string;
   meta?: string;
   body?: string;
+  imageUrl?: string;
   badge?: string;
   badgeTone?: 'neutral' | 'positive' | 'pending';
   onPress?: () => void;
@@ -131,7 +133,7 @@ export function ProfileCollectionScreen({
 
 function ResourceCard({ presentation }: { presentation: ResourcePresentation }) {
   const tone = presentation.badgeTone ?? 'neutral';
-  const content = (
+  const details = (
     <>
       <View style={styles.cardTop}>
         <Text style={styles.cardTitle}>{presentation.title}</Text>
@@ -153,12 +155,24 @@ function ResourceCard({ presentation }: { presentation: ResourcePresentation }) 
       {presentation.body ? <Text style={styles.cardBody}>{presentation.body}</Text> : null}
     </>
   );
+  const content = presentation.imageUrl ? (
+    <View style={styles.cardWithImage}>
+      <Image
+        accessibilityLabel={`${presentation.title} photo`}
+        contentFit="cover"
+        source={{ uri: presentation.imageUrl }}
+        style={styles.cardImage}
+        transition={0}
+      />
+      <View style={styles.cardCopy}>{details}</View>
+    </View>
+  ) : details;
 
   if (!presentation.onPress) return <View style={styles.card}>{content}</View>;
 
   return (
     <Pressable
-      accessibilityHint="Opens the reviewed dish version"
+      accessibilityHint="Opens this dish version"
       accessibilityLabel={`Open ${presentation.title}`}
       accessibilityRole="button"
       onPress={presentation.onPress}
@@ -256,6 +270,20 @@ const styles = StyleSheet.create({
   cardPressed: {
     backgroundColor: colors.controlSurface,
     opacity: 0.82,
+  },
+  cardWithImage: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing[12],
+  },
+  cardImage: {
+    backgroundColor: colors.controlSurface,
+    borderRadius: radii.control,
+    height: 82,
+    width: 92,
+  },
+  cardCopy: {
+    flex: 1,
   },
   cardTop: {
     alignItems: 'flex-start',

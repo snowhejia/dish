@@ -11,7 +11,9 @@ const STATIC_RETURN_PATHS = new Set([
   '/profile/account',
   '/profile/contributions',
   '/profile/notifications',
+  '/profile/photos',
   '/profile/reviews',
+  '/profile/versions',
   '/saved',
 ]);
 

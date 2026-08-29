@@ -381,6 +381,115 @@ router.get('/me/reviews', requireUser, asyncHandler(async (request, response) =>
   })) });
 }));
 
+router.get('/me/photos', requireUser, asyncHandler(async (request, response) => {
+  const result = await query<{
+    id: string;
+    purpose: string;
+    object_key: string;
+    created_at: Date;
+    version_id: string | null;
+    dish_name: string | null;
+    restaurant_name: string | null;
+  }>(
+    `SELECT m.id, m.purpose, m.object_key, m.created_at,
+            linked.version_id, linked.dish_name, linked.restaurant_name
+     FROM media m
+     LEFT JOIN LATERAL (
+       SELECT COALESCE(v.legacy_key, v.id::text) AS version_id,
+              d.canonical_name AS dish_name,
+              venue.name AS restaurant_name
+       FROM (
+         SELECT vm.version_id, 1 AS priority
+         FROM version_media vm WHERE vm.media_id = m.id
+         UNION ALL
+         SELECT review.version_id, 2 AS priority
+         FROM review_media rm
+         JOIN reviews review ON review.id = rm.review_id
+         WHERE rm.media_id = m.id
+         UNION ALL
+         SELECT contribution.resulting_version_id, 3 AS priority
+         FROM contribution_media cm
+         JOIN contributions contribution ON contribution.id = cm.contribution_id
+         WHERE cm.media_id = m.id AND contribution.resulting_version_id IS NOT NULL
+       ) association
+       JOIN dish_versions v ON v.id = association.version_id
+       JOIN dishes d ON d.id = v.dish_id
+       JOIN restaurants venue ON venue.id = v.restaurant_id
+       ORDER BY association.priority
+       LIMIT 1
+     ) linked ON true
+     WHERE m.owner_user_id = $1
+       AND m.status = 'approved'
+       AND m.purpose <> 'avatar'
+       AND (
+         EXISTS (SELECT 1 FROM version_media vm WHERE vm.media_id = m.id)
+         OR EXISTS (SELECT 1 FROM review_media rm WHERE rm.media_id = m.id)
+         OR EXISTS (SELECT 1 FROM contribution_media cm WHERE cm.media_id = m.id)
+       )
+     ORDER BY m.created_at DESC`,
+    [request.user!.id],
+  );
+  response.json({ photos: result.rows.map((row) => ({
+    id: row.id,
+    photoUrl: publicMediaUrl(row.object_key),
+    purpose: row.purpose,
+    versionId: row.version_id,
+    dishName: row.dish_name,
+    restaurantName: row.restaurant_name,
+    createdAt: row.created_at.toISOString(),
+  })) });
+}));
+
+router.get('/me/versions-added', requireUser, asyncHandler(async (request, response) => {
+  const result = await query<{
+    version_id: string;
+    dish_name: string;
+    menu_name: string | null;
+    restaurant_name: string;
+    object_key: string | null;
+    listed_price: string | null;
+    created_at: Date;
+  }>(
+    `SELECT contributed.*
+     FROM (
+       SELECT DISTINCT ON (v.id)
+              COALESCE(v.legacy_key, v.id::text) AS version_id,
+              d.canonical_name AS dish_name,
+              v.menu_name,
+              venue.name AS restaurant_name,
+              cover.object_key,
+              v.listed_price,
+              COALESCE(c.reviewed_at, c.created_at) AS created_at
+       FROM contributions c
+       JOIN dish_versions v ON v.id = c.resulting_version_id
+       JOIN dishes d ON d.id = v.dish_id
+       JOIN restaurants venue ON venue.id = v.restaurant_id
+       LEFT JOIN LATERAL (
+         SELECT m.object_key
+         FROM version_media vm
+         JOIN media m ON m.id = vm.media_id
+         WHERE vm.version_id = v.id AND m.status = 'approved'
+         ORDER BY vm.is_cover DESC, vm.sort_order
+         LIMIT 1
+       ) cover ON true
+       WHERE c.user_id = $1 AND c.status = 'approved' AND v.status = 'published'
+       ORDER BY v.id, c.reviewed_at DESC NULLS LAST, c.created_at DESC
+     ) contributed
+     ORDER BY contributed.created_at DESC`,
+    [request.user!.id],
+  );
+  response.json({ versions: result.rows.map((row) => ({
+    id: row.version_id,
+    versionId: row.version_id,
+    dishName: row.dish_name,
+    menuName: row.menu_name,
+    restaurantName: row.restaurant_name,
+    photoUrl: publicMediaUrl(row.object_key),
+    price: row.listed_price == null ? null : Number(row.listed_price),
+    createdAt: row.created_at.toISOString(),
+  })) });
+}));
+
 router.post('/contributions', requireUser, upload.single('photo'), asyncHandler(async (request, response) => {
   const input = contributionSchema.parse(request.body);
   const dishId = input.dishId ? await resolveDishId(input.dishId) : null;
@@ -752,8 +861,17 @@ async function userWithStats<User extends { id: string }>(user: User) {
   }>(
     `SELECT
        (SELECT count(*)::text FROM reviews WHERE user_id = $1) AS reviews,
-       (SELECT count(*)::text FROM media WHERE owner_user_id = $1 AND status = 'approved' AND purpose <> 'avatar') AS photos,
-       (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'approved') AS versions_added,
+       (SELECT count(*)::text FROM media m
+        WHERE m.owner_user_id = $1 AND m.status = 'approved' AND m.purpose <> 'avatar'
+          AND (
+            EXISTS (SELECT 1 FROM version_media vm WHERE vm.media_id = m.id)
+            OR EXISTS (SELECT 1 FROM review_media rm WHERE rm.media_id = m.id)
+            OR EXISTS (SELECT 1 FROM contribution_media cm WHERE cm.media_id = m.id)
+          )) AS photos,
+       (SELECT count(DISTINCT c.resulting_version_id)::text
+        FROM contributions c
+        JOIN dish_versions v ON v.id = c.resulting_version_id
+        WHERE c.user_id = $1 AND c.status = 'approved' AND v.status = 'published') AS versions_added,
        (SELECT count(*)::text FROM contributions WHERE user_id = $1 AND status = 'pending') AS pending_contributions,
        (SELECT m.object_key FROM users u JOIN media m ON m.id = u.avatar_media_id
         WHERE u.id = $1 AND m.purpose = 'avatar' AND m.status = 'approved') AS avatar_object_key`,
