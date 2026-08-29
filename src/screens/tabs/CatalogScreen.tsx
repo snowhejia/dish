@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useIsFocused } from 'expo-router';
 import {
+  Keyboard,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +38,12 @@ import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type CatalogTab = 'dishes' | 'restaurants';
 type DistanceFilter = 500 | 1000 | 2000;
+type FilterPickerKind = 'cuisine' | 'dishKind' | 'distance';
+
+type FilterPickerOption = {
+  label: string;
+  value: string | null;
+};
 
 type CatalogRowModel = {
   key: string;
@@ -69,6 +77,7 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
   const [dishKind, setDishKind] = useState<DishKindFilter | null>(null);
   const [distance, setDistance] = useState<DistanceFilter | null>(null);
   const [openNow, setOpenNow] = useState(false);
+  const [filterPicker, setFilterPicker] = useState<FilterPickerKind | null>(null);
 
   const cuisineOptions = useMemo(() => Array.from(new Set([
     ...snapshot.dishes.map((dish) => dish.cuisine),
@@ -134,135 +143,262 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
     tab === 'restaurants' && openNow,
   ].filter(Boolean).length;
 
+  const picker = useMemo(() => {
+    if (filterPicker === 'cuisine') {
+      return {
+        title: 'Cuisine',
+        selected: cuisine,
+        options: [
+          { label: 'All cuisines', value: null },
+          ...cuisineOptions.map((value) => ({ label: value, value })),
+        ] satisfies FilterPickerOption[],
+      };
+    }
+    if (filterPicker === 'dishKind') {
+      return {
+        title: 'Dish type',
+        selected: dishKind,
+        options: [
+          { label: 'All dish types', value: null },
+          ...DISH_KIND_OPTIONS.map((value) => ({ label: value, value })),
+        ] satisfies FilterPickerOption[],
+      };
+    }
+    if (filterPicker === 'distance') {
+      return {
+        title: 'Distance',
+        selected: distance === null ? null : String(distance),
+        options: [
+          { label: 'Any distance', value: null },
+          ...DISTANCE_OPTIONS.map((value) => ({
+            label: `Within ${formatDistance(value)}`,
+            value: String(value),
+          })),
+        ] satisfies FilterPickerOption[],
+      };
+    }
+    return null;
+  }, [cuisine, cuisineOptions, dishKind, distance, filterPicker]);
+
+  const selectFilterOption = (value: string | null) => {
+    if (filterPicker === 'cuisine') setCuisine(value);
+    if (filterPicker === 'dishKind') setDishKind(value as DishKindFilter | null);
+    if (filterPicker === 'distance') {
+      setDistance(value === null ? null : Number(value) as DistanceFilter);
+    }
+    setFilterPicker(null);
+  };
+
+  const openFilterPicker = (pickerKind: FilterPickerKind) => {
+    Keyboard.dismiss();
+    setFilterPicker(pickerKind);
+  };
+
   const clearFilters = () => {
     setSearch('');
     setCuisine(null);
     setDishKind(null);
     setDistance(null);
     setOpenNow(false);
+    setFilterPicker(null);
   };
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="never"
-      keyboardShouldPersistTaps="handled"
-      scrollsToTop={isFocused}
-      showsVerticalScrollIndicator={false}
-      style={styles.screen}
-    >
-      <View style={[styles.header, { paddingTop: Math.max(58, insets.top + spacing[11]) }]}>
-        <View style={styles.titleRow}>
-          <View style={styles.titleCopy}>
-            <Text style={styles.title}>Catalog</Text>
-            <Text style={styles.subtitle}>Every dish and restaurant on Dish.</Text>
+    <>
+      <ScrollView
+        contentInsetAdjustmentBehavior="never"
+        keyboardShouldPersistTaps="handled"
+        scrollsToTop={isFocused}
+        showsVerticalScrollIndicator={false}
+        style={styles.screen}
+      >
+        <View style={[styles.header, { paddingTop: Math.max(58, insets.top + spacing[11]) }]}>
+          <View style={styles.titleRow}>
+            <View style={styles.titleCopy}>
+              <Text style={styles.title}>Catalog</Text>
+              <Text style={styles.subtitle}>Every dish and restaurant on Dish.</Text>
+            </View>
+            <Dishy size={58} variant="discover" />
           </View>
-          <Dishy size={58} variant="discover" />
-        </View>
-        <SearchField
-          onChangeText={setSearch}
-          placeholder="Search all dishes & restaurants"
-          style={styles.search}
-          value={search}
-        />
-        <SegmentedControl onChange={setTab} options={SEGMENTS} style={styles.segments} value={tab} />
-      </View>
-
-      <HorizontalChipList style={styles.filterContent}>
-        <FilterChip
-          active={Boolean(cuisine)}
-          label={cuisine ?? 'Cuisine'}
-          onPress={() => setCuisine(nextOption(cuisine, cuisineOptions))}
-        />
-        {tab === 'dishes' ? (
-          <FilterChip
-            active={Boolean(dishKind)}
-            label={dishKind ?? 'Dish type'}
-            onPress={() => setDishKind(nextOption(dishKind, DISH_KIND_OPTIONS))}
+          <SearchField
+            onChangeText={setSearch}
+            placeholder="Search all dishes & restaurants"
+            style={styles.search}
+            value={search}
           />
+          <SegmentedControl onChange={setTab} options={SEGMENTS} style={styles.segments} value={tab} />
+        </View>
+
+        {tab === 'dishes' ? (
+          <View style={styles.dishFilterRow}>
+            <FilterChip
+              active={Boolean(cuisine)}
+              fill
+              label={cuisine ?? 'Cuisine'}
+              onPress={() => openFilterPicker('cuisine')}
+            />
+            <FilterChip
+              active={Boolean(dishKind)}
+              fill
+              label={dishKind ?? 'Dish type'}
+              onPress={() => openFilterPicker('dishKind')}
+            />
+          </View>
         ) : (
-          <>
+          <HorizontalChipList style={styles.filterContent}>
+            <FilterChip
+              active={Boolean(cuisine)}
+              label={cuisine ?? 'Cuisine'}
+              onPress={() => openFilterPicker('cuisine')}
+            />
             <FilterChip
               active={openNow}
               label="Open now"
               onPress={() => setOpenNow((value) => !value)}
+              selectable={false}
             />
             <FilterChip
               active={Boolean(distance)}
               label={distance ? `Within ${formatDistance(distance)}` : 'Distance'}
-              onPress={() => setDistance(nextOption(distance, DISTANCE_OPTIONS))}
+              onPress={() => openFilterPicker('distance')}
             />
-          </>
+          </HorizontalChipList>
         )}
-      </HorizontalChipList>
 
-      <View style={styles.resultHeading}>
-        <PixelEyebrow>
-          {tab === 'dishes' ? `DISHES · ${rows.length}` : `RESTAURANTS · ${rows.length}`}
-        </PixelEyebrow>
-        {activeFilterCount || search.trim() ? (
-          <Pressable accessibilityRole="button" onPress={clearFilters}>
-            <Text style={styles.clearLabel}>Clear</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {loading ? <Text style={styles.status}>Refreshing the catalog…</Text> : null}
-      {!loading && error ? <Text style={styles.status}>Showing the saved catalog while live data reconnects.</Text> : null}
-
-      {rows.length ? (
-        <View style={styles.list}>
-          {rows.map((row) => (
-            <CatalogRow
-              fallbackImage={row.fallbackImage}
-              image={row.image}
-              key={row.key}
-              onPress={row.onPress}
-              subtitle={row.subtitle}
-              title={row.title}
-            />
-          ))}
+        <View style={styles.resultHeading}>
+          <PixelEyebrow>
+            {tab === 'dishes' ? `DISHES · ${rows.length}` : `RESTAURANTS · ${rows.length}`}
+          </PixelEyebrow>
+          {activeFilterCount || search.trim() ? (
+            <Pressable accessibilityRole="button" onPress={clearFilters}>
+              <Text style={styles.clearLabel}>Clear</Text>
+            </Pressable>
+          ) : null}
         </View>
-      ) : (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Nothing matches yet</Text>
-          <Text style={styles.emptyBody}>Try a broader search or clear the active filters.</Text>
-          <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.emptyButton}>
-            <Text style={styles.emptyButtonLabel}>Show everything</Text>
-          </Pressable>
-        </View>
-      )}
-      <BottomTabSpacer />
-    </ScrollView>
+
+        {loading ? <Text style={styles.status}>Refreshing the catalog…</Text> : null}
+        {!loading && error ? <Text style={styles.status}>Showing the saved catalog while live data reconnects.</Text> : null}
+
+        {rows.length ? (
+          <View style={styles.list}>
+            {rows.map((row) => (
+              <CatalogRow
+                fallbackImage={row.fallbackImage}
+                image={row.image}
+                key={row.key}
+                onPress={row.onPress}
+                subtitle={row.subtitle}
+                title={row.title}
+              />
+            ))}
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Nothing matches yet</Text>
+            <Text style={styles.emptyBody}>Try a broader search or clear the active filters.</Text>
+            <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.emptyButton}>
+              <Text style={styles.emptyButtonLabel}>Show everything</Text>
+            </Pressable>
+          </View>
+        )}
+        <BottomTabSpacer />
+      </ScrollView>
+
+      <FilterPickerModal
+        bottomInset={insets.bottom}
+        onClose={() => setFilterPicker(null)}
+        onSelect={selectFilterOption}
+        options={picker?.options ?? []}
+        selected={picker?.selected ?? null}
+        title={picker?.title ?? ''}
+        visible={Boolean(picker)}
+      />
+    </>
   );
 }
 
 function FilterChip({
   active,
+  fill = false,
   label,
   onPress,
+  selectable = true,
 }: {
   active: boolean;
+  fill?: boolean;
   label: string;
   onPress: () => void;
+  selectable?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.filterChip, active && styles.filterChipActive]}
+      style={[styles.filterChip, fill && styles.filterChipFill, active && styles.filterChipActive]}
     >
       <Text numberOfLines={1} style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
-      <ChevronDownIcon color={active ? colors.purple : colors.muted} size={9} strokeWidth={1.6} />
+      {selectable ? <ChevronDownIcon color={active ? colors.purple : colors.muted} size={9} strokeWidth={1.6} /> : null}
     </Pressable>
   );
 }
 
-function nextOption<Value>(current: Value | null, options: readonly Value[]): Value | null {
-  if (!options.length) return null;
-  if (current === null) return options[0] ?? null;
-  const nextIndex = options.indexOf(current) + 1;
-  return nextIndex >= options.length ? null : options[nextIndex] ?? null;
+function FilterPickerModal({
+  bottomInset,
+  onClose,
+  onSelect,
+  options,
+  selected,
+  title,
+  visible,
+}: {
+  bottomInset: number;
+  onClose: () => void;
+  onSelect: (value: string | null) => void;
+  options: FilterPickerOption[];
+  selected: string | null;
+  title: string;
+  visible: boolean;
+}) {
+  return (
+    <Modal
+      animationType="fade"
+      onRequestClose={onClose}
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View style={styles.pickerOverlay}>
+        <Pressable accessible={false} onPress={onClose} style={StyleSheet.absoluteFill} />
+        <View style={[styles.pickerSheet, { paddingBottom: Math.max(bottomInset, spacing[14]) }]}>
+          <View style={styles.pickerHandle} />
+          <Text style={styles.pickerTitle}>{title}</Text>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {options.map((option) => {
+              const isSelected = option.value === selected;
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  key={option.value ?? 'all'}
+                  onPress={() => onSelect(option.value)}
+                  style={({ pressed }) => [styles.pickerOption, pressed && styles.pickerOptionPressed]}
+                >
+                  <Text style={[styles.pickerOptionLabel, isSelected && styles.pickerOptionLabelSelected]}>
+                    {option.label}
+                  </Text>
+                  <View style={[styles.pickerRadio, isSelected && styles.pickerRadioSelected]}>
+                    {isSelected ? <View style={styles.pickerRadioDot} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 function formatDistance(metres: DistanceFilter) {
@@ -320,6 +456,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[2],
     paddingTop: spacing[14],
   },
+  dishFilterRow: {
+    flexDirection: 'row',
+    gap: spacing[8],
+    paddingBottom: spacing[2],
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: spacing[14],
+  },
   filterChip: {
     alignItems: 'center',
     borderColor: colors.border,
@@ -335,14 +478,91 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lavender,
     borderColor: colors.borderStrong,
   },
+  filterChipFill: {
+    flex: 1,
+    justifyContent: 'center',
+    maxWidth: '100%',
+  },
   filterLabel: {
     color: colors.body,
+    flexShrink: 1,
     fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 16,
   },
   filterLabelActive: {
     color: colors.purpleDark,
+  },
+  pickerOverlay: {
+    backgroundColor: 'rgba(20, 16, 42, 0.36)',
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: radii.large,
+    borderTopRightRadius: radii.large,
+    maxHeight: '72%',
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: spacing[8],
+  },
+  pickerHandle: {
+    alignSelf: 'center',
+    backgroundColor: colors.borderStrong,
+    borderRadius: radii.pill,
+    height: 4,
+    marginBottom: spacing[12],
+    width: 38,
+  },
+  pickerTitle: {
+    color: colors.ink,
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.35,
+    lineHeight: 23,
+    paddingBottom: spacing[8],
+  },
+  pickerOption: {
+    alignItems: 'center',
+    borderBottomColor: colors.borderSoft,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    minHeight: 50,
+    paddingVertical: spacing[8],
+  },
+  pickerOptionPressed: {
+    opacity: 0.62,
+  },
+  pickerOptionLabel: {
+    color: colors.body,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '500',
+    lineHeight: 20,
+    paddingRight: spacing[12],
+  },
+  pickerOptionLabelSelected: {
+    color: colors.purpleDark,
+    fontWeight: '700',
+  },
+  pickerRadio: {
+    alignItems: 'center',
+    borderColor: colors.borderStrong,
+    borderRadius: radii.pill,
+    borderWidth: 1.5,
+    height: 20,
+    justifyContent: 'center',
+    width: 20,
+  },
+  pickerRadioSelected: {
+    borderColor: colors.purple,
+  },
+  pickerRadioDot: {
+    backgroundColor: colors.purple,
+    borderRadius: radii.pill,
+    height: 10,
+    width: 10,
   },
   resultHeading: {
     alignItems: 'center',
