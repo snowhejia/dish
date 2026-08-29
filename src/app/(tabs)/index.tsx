@@ -7,7 +7,6 @@ export default function DiscoverRoute() {
 
   return (
     <DiscoverScreen
-      onOpenCatalog={() => router.navigate('/catalog')}
       onOpenDish={(id) => router.push({ pathname: '/dish/[id]', params: { id } })}
     />
   );

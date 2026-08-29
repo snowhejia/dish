@@ -13,6 +13,8 @@ import {
 } from '@/components/tabs';
 import type { Dish, DishVersion } from '@/data/mockData';
 import {
+  normalizeCatalogText,
+  searchableDishText,
   versionMatchesDiscoverFilter,
   type DiscoverFilter,
 } from '@/lib/catalogFilters';
@@ -28,38 +30,52 @@ type FeedItem = {
 };
 
 export type DiscoverScreenProps = {
-  onOpenCatalog: () => void;
   onOpenDish: (dishId: string) => void;
   showMascot?: boolean;
 };
 
-export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }: DiscoverScreenProps) {
+export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreenProps) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const { snapshot, loading, error } = useCatalog();
+  const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<DiscoverFilter | null>(null);
   const [shuffleRevision, setShuffleRevision] = useState(0);
 
   const feed = useMemo(() => {
+    const query = normalizeCatalogText(search);
     const items = snapshot.dishes.flatMap((dish): FeedItem[] => {
       const dishVersions = snapshot.versions.filter((version) => version.dishId === dish.id);
-      const matchingVersions = selectedFilter
-        ? dishVersions.filter((version) => versionMatchesDiscoverFilter(dish, version, selectedFilter))
-        : dishVersions;
+      const matchingVersions = dishVersions.filter((version) => {
+        if (selectedFilter && !versionMatchesDiscoverFilter(dish, version, selectedFilter)) return false;
+        return !query || searchableDishText(dish, [version]).includes(query);
+      });
       const version = matchingVersions[0];
       return version
         ? [{ dish, version, moreCount: Math.max(0, dishVersions.length - 1) }]
         : [];
     });
     return interleaveByCuisine(items, shuffleRevision);
-  }, [selectedFilter, shuffleRevision, snapshot]);
+  }, [search, selectedFilter, shuffleRevision, snapshot]);
 
   const cardWidth = (width - sizes.pageGutter * 2 - spacing[12]) / 2;
-  const feedEyebrow = selectedFilter ? `${selectedFilter.toUpperCase()} · NEARBY` : 'NEARBY RIGHT NOW';
+  const hasSearch = Boolean(search.trim());
+  const feedEyebrow = hasSearch
+    ? `SEARCH RESULTS · ${feed.length}`
+    : selectedFilter
+      ? `${selectedFilter.toUpperCase()} · NEARBY`
+      : 'NEARBY RIGHT NOW';
+
+  const clearAll = () => {
+    setSearch('');
+    setSelectedFilter(null);
+  };
 
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
+      keyboardDismissMode="on-drag"
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >
@@ -82,9 +98,10 @@ export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }:
         </View>
 
         <SearchField
-          onPress={onOpenCatalog}
+          onChangeText={setSearch}
           placeholder="Search dishes or restaurants..."
           surface="white"
+          value={search}
         />
       </View>
 
@@ -107,15 +124,21 @@ export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }:
 
       <View style={styles.sectionHeader}>
         <PixelEyebrow>{feedEyebrow}</PixelEyebrow>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Shuffle nearby dishes"
-          onPress={() => setShuffleRevision((value) => value + 1)}
-          style={styles.shuffle}
-        >
-          <ShuffleIcon color={colors.purple} size={14} strokeWidth={1.7} />
-          <Text style={styles.shuffleLabel}>Shuffle</Text>
-        </Pressable>
+        {hasSearch ? (
+          <Pressable accessibilityRole="button" onPress={() => setSearch('')} style={styles.shuffle}>
+            <Text style={styles.shuffleLabel}>Clear</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Shuffle nearby dishes"
+            onPress={() => setShuffleRevision((value) => value + 1)}
+            style={styles.shuffle}
+          >
+            <ShuffleIcon color={colors.purple} size={14} strokeWidth={1.7} />
+            <Text style={styles.shuffleLabel}>Shuffle</Text>
+          </Pressable>
+        )}
       </View>
 
       {loading ? <Text style={styles.status}>Refreshing nearby dishes…</Text> : null}
@@ -134,8 +157,10 @@ export function DiscoverScreen({ onOpenCatalog, onOpenDish, showMascot = true }:
         ))}
       </View> : (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No dishes match this filter yet</Text>
-          <Pressable onPress={() => setSelectedFilter(null)} style={styles.clearButton}>
+          <Text style={styles.emptyTitle}>
+            {hasSearch ? `No dishes or restaurants match “${search.trim()}”` : 'No dishes match this filter yet'}
+          </Text>
+          <Pressable accessibilityRole="button" onPress={clearAll} style={styles.clearButton}>
             <Text style={styles.clearLabel}>Show everything</Text>
           </Pressable>
         </View>
