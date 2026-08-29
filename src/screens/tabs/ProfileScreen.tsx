@@ -1,4 +1,5 @@
-import { useIsFocused } from 'expo-router';
+import { useCallback, useRef } from 'react';
+import { useFocusEffect, useIsFocused } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -29,7 +30,14 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
   const isFocused = useIsFocused();
-  const { logout, status, user } = useAuth();
+  const { logout, refreshUser, status, user } = useAuth();
+  const refreshUserRef = useRef(refreshUser);
+  refreshUserRef.current = refreshUser;
+
+  useFocusEffect(useCallback(() => {
+    void refreshUserRef.current().catch(() => undefined);
+  }, []));
+
   const rows = [
     {
       label: 'My contributions',
