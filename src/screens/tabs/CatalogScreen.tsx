@@ -38,7 +38,9 @@ import { colors, radii, sizes, spacing } from '@/theme/tokens';
 
 type CatalogTab = 'dishes' | 'restaurants';
 type DistanceFilter = 500 | 1000 | 2000;
-type FilterPickerKind = 'cuisine' | 'dishKind' | 'distance';
+type VersionCountFilter = 2 | 3 | 5;
+type DishSort = 'name' | 'versions' | 'reviews';
+type FilterPickerKind = 'cuisine' | 'dishKind' | 'versionCount' | 'dishSort' | 'distance';
 
 type FilterPickerOption = {
   label: string;
@@ -60,6 +62,7 @@ const SEGMENTS = [
 ] as const;
 
 const DISTANCE_OPTIONS = [500, 1000, 2000] as const;
+const VERSION_COUNT_OPTIONS = [2, 3, 5] as const;
 const DISH_KIND_OPTIONS = ['Soupy', 'Spicy'] as const;
 
 export type CatalogScreenProps = {
@@ -75,6 +78,8 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
   const [search, setSearch] = useState('');
   const [cuisine, setCuisine] = useState<string | null>(null);
   const [dishKind, setDishKind] = useState<DishKindFilter | null>(null);
+  const [versionCount, setVersionCount] = useState<VersionCountFilter | null>(null);
+  const [dishSort, setDishSort] = useState<DishSort>('name');
   const [distance, setDistance] = useState<DistanceFilter | null>(null);
   const [openNow, setOpenNow] = useState(false);
   const [filterPicker, setFilterPicker] = useState<FilterPickerKind | null>(null);
@@ -88,7 +93,7 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
     const query = normalizeCatalogText(search);
 
     if (tab === 'dishes') {
-      return snapshot.dishes.flatMap((dish): CatalogRowModel[] => {
+      const dishRows = snapshot.dishes.flatMap((dish) => {
         const allVersions = snapshot.versions.filter((version) => version.dishId === dish.id);
         if (query && !searchableDishText(dish, allVersions).includes(query)) return [];
 
@@ -99,16 +104,32 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         });
         const first = matchingVersions[0];
         if (!first) return [];
+        if (versionCount && matchingVersions.length < versionCount) return [];
 
         const from = Math.min(...matchingVersions.map((version) => version.price));
         return [{
-          key: dish.id,
-          image: foodImages[first.id] ?? fallbackFoodImage,
-          title: dish.name,
-          subtitle: `${dish.cuisine} · ${matchingVersions.length} ${matchingVersions.length === 1 ? 'version' : 'versions'} · from ${money(from)}`,
-          onPress: () => onOpenDish(dish.id),
+          row: {
+            key: dish.id,
+            image: foodImages[first.id] ?? fallbackFoodImage,
+            title: dish.name,
+            subtitle: `${dish.cuisine} · ${matchingVersions.length} ${matchingVersions.length === 1 ? 'version' : 'versions'} · from ${money(from)}`,
+            onPress: () => onOpenDish(dish.id),
+          } satisfies CatalogRowModel,
+          reviewCount: matchingVersions.reduce((total, version) => total + version.votes, 0),
+          versionCount: matchingVersions.length,
         }];
       });
+
+      dishRows.sort((left, right) => {
+        if (dishSort === 'versions' && right.versionCount !== left.versionCount) {
+          return right.versionCount - left.versionCount;
+        }
+        if (dishSort === 'reviews' && right.reviewCount !== left.reviewCount) {
+          return right.reviewCount - left.reviewCount;
+        }
+        return left.row.title.localeCompare(right.row.title);
+      });
+      return dishRows.map(({ row }) => row);
     }
 
     return groupRestaurants(snapshot.versions).flatMap((restaurant): CatalogRowModel[] => {
@@ -134,11 +155,13 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         onPress: () => onOpenRestaurant(restaurant.name, first.id),
       }];
     });
-  }, [cuisine, dishKind, distance, onOpenDish, onOpenRestaurant, openNow, search, snapshot, tab]);
+  }, [cuisine, dishKind, dishSort, distance, onOpenDish, onOpenRestaurant, openNow, search, snapshot, tab, versionCount]);
 
   const activeFilterCount = [
     Boolean(cuisine),
     tab === 'dishes' && Boolean(dishKind),
+    tab === 'dishes' && Boolean(versionCount),
+    tab === 'dishes' && dishSort !== 'name',
     tab === 'restaurants' && Boolean(distance),
     tab === 'restaurants' && openNow,
   ].filter(Boolean).length;
@@ -164,6 +187,30 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         ] satisfies FilterPickerOption[],
       };
     }
+    if (filterPicker === 'versionCount') {
+      return {
+        title: 'Number of versions',
+        selected: versionCount === null ? null : String(versionCount),
+        options: [
+          { label: 'Any number of versions', value: null },
+          ...VERSION_COUNT_OPTIONS.map((value) => ({
+            label: `${value}+ versions`,
+            value: String(value),
+          })),
+        ] satisfies FilterPickerOption[],
+      };
+    }
+    if (filterPicker === 'dishSort') {
+      return {
+        title: 'Sort dishes',
+        selected: dishSort,
+        options: [
+          { label: 'A–Z', value: 'name' },
+          { label: 'Most versions', value: 'versions' },
+          { label: 'Most reviewed', value: 'reviews' },
+        ] satisfies FilterPickerOption[],
+      };
+    }
     if (filterPicker === 'distance') {
       return {
         title: 'Distance',
@@ -178,11 +225,15 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
       };
     }
     return null;
-  }, [cuisine, cuisineOptions, dishKind, distance, filterPicker]);
+  }, [cuisine, cuisineOptions, dishKind, dishSort, distance, filterPicker, versionCount]);
 
   const selectFilterOption = (value: string | null) => {
     if (filterPicker === 'cuisine') setCuisine(value);
     if (filterPicker === 'dishKind') setDishKind(value as DishKindFilter | null);
+    if (filterPicker === 'versionCount') {
+      setVersionCount(value === null ? null : Number(value) as VersionCountFilter);
+    }
+    if (filterPicker === 'dishSort' && value) setDishSort(value as DishSort);
     if (filterPicker === 'distance') {
       setDistance(value === null ? null : Number(value) as DistanceFilter);
     }
@@ -198,6 +249,8 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
     setSearch('');
     setCuisine(null);
     setDishKind(null);
+    setVersionCount(null);
+    setDishSort('name');
     setDistance(null);
     setOpenNow(false);
     setFilterPicker(null);
@@ -230,21 +283,28 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         </View>
 
         {tab === 'dishes' ? (
-          <View style={styles.dishFilterBar}>
+          <HorizontalChipList style={styles.filterContent}>
             <FilterChip
               active={Boolean(cuisine)}
-              embedded
               label={cuisine ?? 'Cuisine'}
               onPress={() => openFilterPicker('cuisine')}
             />
-            <View style={styles.dishFilterDivider} />
             <FilterChip
               active={Boolean(dishKind)}
-              embedded
               label={dishKind ?? 'Dish type'}
               onPress={() => openFilterPicker('dishKind')}
             />
-          </View>
+            <FilterChip
+              active={Boolean(versionCount)}
+              label={versionCount ? `${versionCount}+ versions` : 'Versions'}
+              onPress={() => openFilterPicker('versionCount')}
+            />
+            <FilterChip
+              active={dishSort !== 'name'}
+              label={dishSort === 'versions' ? 'Most versions' : dishSort === 'reviews' ? 'Most reviewed' : 'Sort'}
+              onPress={() => openFilterPicker('dishSort')}
+            />
+          </HorizontalChipList>
         ) : (
           <HorizontalChipList style={styles.filterContent}>
             <FilterChip
@@ -320,13 +380,11 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
 
 function FilterChip({
   active,
-  embedded = false,
   label,
   onPress,
   selectable = true,
 }: {
   active: boolean;
-  embedded?: boolean;
   label: string;
   onPress: () => void;
   selectable?: boolean;
@@ -336,11 +394,7 @@ function FilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[
-        styles.filterChip,
-        embedded && styles.filterChipEmbedded,
-        active && !embedded && styles.filterChipActive,
-      ]}
+      style={[styles.filterChip, active && styles.filterChipActive]}
     >
       <Text numberOfLines={1} style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
       {selectable ? <ChevronDownIcon color={active ? colors.purple : colors.muted} size={9} strokeWidth={1.6} /> : null}
@@ -461,23 +515,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[2],
     paddingTop: spacing[14],
   },
-  dishFilterBar: {
-    alignItems: 'center',
-    backgroundColor: colors.softSurface,
-    borderColor: colors.borderSoft,
-    borderRadius: radii.control,
-    borderWidth: 1,
-    flexDirection: 'row',
-    marginBottom: spacing[2],
-    marginHorizontal: sizes.pageGutter,
-    marginTop: spacing[14],
-    overflow: 'hidden',
-  },
-  dishFilterDivider: {
-    backgroundColor: colors.border,
-    height: 22,
-    width: StyleSheet.hairlineWidth,
-  },
   filterChip: {
     alignItems: 'center',
     borderColor: colors.border,
@@ -492,15 +529,6 @@ const styles = StyleSheet.create({
   filterChipActive: {
     backgroundColor: colors.lavender,
     borderColor: colors.borderStrong,
-  },
-  filterChipEmbedded: {
-    borderRadius: 0,
-    borderWidth: 0,
-    flex: 1,
-    justifyContent: 'space-between',
-    maxWidth: '100%',
-    paddingHorizontal: spacing[14],
-    paddingVertical: spacing[10],
   },
   filterLabel: {
     color: colors.body,
