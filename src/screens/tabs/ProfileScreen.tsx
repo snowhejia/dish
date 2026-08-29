@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,6 +28,7 @@ export function ProfileScreen({
   onOpenRegister,
 }: ProfileScreenProps) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { logout, status, user } = useAuth();
   const rows = [
     {
@@ -51,6 +53,7 @@ export function ProfileScreen({
       <ScrollView
         contentInsetAdjustmentBehavior="never"
         contentContainerStyle={styles.guestContent}
+        scrollsToTop={isFocused}
         showsVerticalScrollIndicator={false}
         style={styles.screen}
       >
@@ -87,6 +90,7 @@ export function ProfileScreen({
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
+      scrollsToTop={isFocused}
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >

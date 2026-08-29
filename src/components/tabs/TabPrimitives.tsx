@@ -131,6 +131,7 @@ export function HorizontalChipList({ children, style }: { children: ReactNode; s
     <ScrollView
       contentContainerStyle={[styles.chipContent, style]}
       horizontal
+      scrollsToTop={false}
       showsHorizontalScrollIndicator={false}
     >
       {children}

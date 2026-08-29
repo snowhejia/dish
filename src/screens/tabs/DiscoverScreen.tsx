@@ -1,5 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useIsFocused, useScrollToTop } from 'expo-router';
+import {
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Dishy } from '@/components/brand';
@@ -36,12 +46,27 @@ export type DiscoverScreenProps = {
 
 export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreenProps) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { width } = useWindowDimensions();
-  const { snapshot, loading, error } = useCatalog();
+  const { snapshot, loading, error, refreshCatalog } = useCatalog();
   const { coordinates, isLocating, locationLabel, refreshLocation } = useLocation();
+  const scrollRef = useRef<ScrollView>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<DiscoverFilter | null>(null);
   const [shuffleRevision, setShuffleRevision] = useState(0);
+
+  useScrollToTop(scrollRef);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([refreshCatalog(), refreshLocation()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshCatalog, refreshLocation, refreshing]);
 
   const feed = useMemo(() => {
     const query = normalizeCatalogText(search);
@@ -77,7 +102,17 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
       contentInsetAdjustmentBehavior="never"
       keyboardDismissMode="on-drag"
       keyboardShouldPersistTaps="handled"
+      ref={scrollRef}
+      refreshControl={(
+        <RefreshControl
+          colors={[colors.purple]}
+          onRefresh={() => void handleRefresh()}
+          refreshing={refreshing}
+          tintColor={colors.purple}
+        />
+      )}
       showsVerticalScrollIndicator={false}
+      scrollsToTop={isFocused}
       style={styles.screen}
     >
       <View style={[styles.hero, { paddingTop: Math.max(spacing[26], insets.top + spacing[4]) }]}>
@@ -154,7 +189,7 @@ export function DiscoverScreen({ onOpenDish, showMascot = true }: DiscoverScreen
         )}
       </View>
 
-      {loading ? <Text style={styles.status}>Refreshing nearby dishes…</Text> : null}
+      {loading && !refreshing ? <Text style={styles.status}>Refreshing nearby dishes…</Text> : null}
       {!loading && error ? <Text style={styles.status}>Showing the saved catalog while live data reconnects.</Text> : null}
 
       {feed.length ? <View style={styles.feedGrid}>

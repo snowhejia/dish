@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useIsFocused } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,6 +28,7 @@ export type SavedScreenProps = {
 
 export function SavedScreen({ onBrowseDiscover, onOpenDish, onOpenVersion, onSignIn }: SavedScreenProps) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { status } = useAuth();
   const {
     refreshSaved,
@@ -81,6 +83,7 @@ export function SavedScreen({ onBrowseDiscover, onOpenDish, onOpenVersion, onSig
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="never"
+      scrollsToTop={isFocused}
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >

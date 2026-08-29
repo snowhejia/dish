@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useIsFocused } from 'expo-router';
 import {
   Pressable,
   ScrollView,
@@ -62,6 +63,7 @@ export type CatalogScreenProps = {
 
 export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenProps) {
   const insets = useSafeAreaInsets();
+  const isFocused = useIsFocused();
   const { snapshot, loading, error } = useCatalog();
   const [tab, setTab] = useState<CatalogTab>('dishes');
   const [search, setSearch] = useState('');
@@ -151,6 +153,7 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
     <ScrollView
       contentInsetAdjustmentBehavior="never"
       keyboardShouldPersistTaps="handled"
+      scrollsToTop={isFocused}
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >
