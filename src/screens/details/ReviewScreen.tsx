@@ -1,0 +1,408 @@
+import { useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+
+import { Dishy } from '@/components/brand';
+import { CheckIcon, PencilIcon, PlusIcon, XIcon } from '@/components/icons';
+import {
+  ActionButton,
+  DetailHeader,
+  DetailScreen,
+  FoodImage,
+  PixelEyebrow,
+  StickyFooter,
+} from '@/components/details';
+import { foodImages } from '@/data/images';
+import { dishForVersion, versionById } from '@/data/mockData';
+import { colors, radii, sizes } from '@/theme/tokens';
+
+export type ReviewVerdict = 'YES' | 'NO';
+
+export type ReviewSubmission = {
+  versionId: string;
+  verdict: ReviewVerdict;
+  text?: string;
+  photoUri?: string;
+  pricePaid?: number;
+};
+
+export type ReviewScreenProps = {
+  versionId?: string;
+  onBack?: () => void;
+  onPostReview?: (submission: ReviewSubmission) => void | Promise<void>;
+};
+
+export function ReviewScreen({
+  versionId = 'beef-xian',
+  onBack,
+  onPostReview,
+}: ReviewScreenProps) {
+  const version = versionById(versionId);
+  const dish = dishForVersion(version);
+  const [verdict, setVerdict] = useState<ReviewVerdict>();
+  const [reviewText, setReviewText] = useState('');
+  const [pricePaid, setPricePaid] = useState('16.80');
+  const [photoUri, setPhotoUri] = useState<string>();
+
+  const pickPhoto = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.9,
+    });
+    if (!result.canceled) setPhotoUri(result.assets[0]?.uri);
+  };
+
+  const submit = () => {
+    if (!verdict) return;
+    const parsedPrice = Number.parseFloat(pricePaid);
+    void onPostReview?.({
+      versionId: version.id,
+      verdict,
+      text: reviewText.trim() || undefined,
+      photoUri,
+      pricePaid: Number.isFinite(parsedPrice) ? parsedPrice : undefined,
+    });
+  };
+
+  return (
+    <DetailScreen>
+      <KeyboardAvoidingView style={styles.keyboard} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <DetailHeader title="Review this version" close onBack={onBack} />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.versionSummary}>
+            <View style={styles.summaryPhoto}>
+              <FoodImage source={foodImages[version.id]} style={StyleSheet.absoluteFill} accessibilityLabel={dish.name} />
+            </View>
+            <View style={styles.summaryCopy}>
+              <Text numberOfLines={1} style={styles.dishName}>{dish.name}</Text>
+              <Text numberOfLines={1} style={styles.restaurant}>{version.restaurant}</Text>
+            </View>
+          </View>
+
+          <View style={styles.verdictSection}>
+            <View style={styles.mascot}><Dishy variant="review" size={54} /></View>
+            <Text style={styles.question}>Would you eat it again?</Text>
+            <View style={styles.choices}>
+              <VerdictChoice
+                label="Yes"
+                selected={verdict === 'YES'}
+                onPress={() => setVerdict('YES')}
+                icon={<CheckIcon size={26} color={verdict === 'YES' ? colors.purpleDark : colors.inactive} strokeWidth={2} />}
+                yes
+              />
+              <VerdictChoice
+                label="No"
+                selected={verdict === 'NO'}
+                onPress={() => setVerdict('NO')}
+                icon={<XIcon size={26} color={verdict === 'NO' ? colors.body : colors.inactive} strokeWidth={2} />}
+              />
+            </View>
+          </View>
+
+          <View style={styles.optionalSection}>
+            <View style={styles.optionalHeading}>
+              <PixelEyebrow>EVERYTHING ELSE</PixelEyebrow>
+              <Text style={styles.optional}>optional</Text>
+            </View>
+            <TextInput
+              value={reviewText}
+              onChangeText={setReviewText}
+              multiline
+              textAlignVertical="top"
+              placeholder="Say a little about it..."
+              placeholderTextColor={colors.disabled}
+              style={styles.reviewInput}
+            />
+            <View style={styles.extraRow}>
+              <Pressable onPress={pickPhoto} style={({ pressed }) => [styles.photoButton, pressed && styles.pressed]}>
+                {photoUri ? (
+                  <FoodImage source={{ uri: photoUri }} style={StyleSheet.absoluteFill} accessibilityLabel="Selected review photo" />
+                ) : (
+                  <>
+                    <PlusIcon size={18} color={colors.purple} strokeWidth={1.8} />
+                    <Text style={styles.photoLabel}>Photo</Text>
+                  </>
+                )}
+              </Pressable>
+              <View style={styles.priceCard}>
+                <View style={styles.priceCopy}>
+                  <Text style={styles.priceLabel}>Price you paid</Text>
+                  <View style={styles.priceInputRow}>
+                    <Text style={styles.dollar}>$</Text>
+                    <TextInput
+                      value={pricePaid}
+                      onChangeText={setPricePaid}
+                      keyboardType="decimal-pad"
+                      selectTextOnFocus
+                      style={styles.priceInput}
+                      accessibilityLabel="Price you paid"
+                    />
+                  </View>
+                </View>
+                <PencilIcon size={16} color={colors.iconMuted} strokeWidth={1.8} />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+
+        <StickyFooter>
+          <ActionButton
+            style={[styles.submit, !verdict && styles.submitDisabled]}
+            textStyle={!verdict && styles.submitTextDisabled}
+            onPress={verdict ? submit : onBack}
+          >
+            {verdict ? 'Post review' : 'Answer to continue'}
+          </ActionButton>
+        </StickyFooter>
+      </KeyboardAvoidingView>
+    </DetailScreen>
+  );
+}
+
+function VerdictChoice({
+  label,
+  selected,
+  onPress,
+  icon,
+  yes = false,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  icon: React.ReactNode;
+  yes?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: selected }}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.choice,
+        selected && (yes ? styles.choiceYes : styles.choiceNo),
+        pressed && styles.pressed,
+      ]}
+    >
+      {icon}
+      <Text style={[styles.choiceLabel, selected && (yes ? styles.choiceLabelYes : styles.choiceLabelNo)]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  keyboard: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 130,
+  },
+  versionSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: 20,
+  },
+  summaryPhoto: {
+    width: 56,
+    height: 56,
+    flexShrink: 0,
+    overflow: 'hidden',
+    borderRadius: radii.control,
+    backgroundColor: colors.imageSurface,
+  },
+  summaryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  dishName: {
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '600',
+    letterSpacing: -0.3,
+  },
+  restaurant: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  verdictSection: {
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: 26,
+  },
+  mascot: {
+    alignItems: 'center',
+    height: 49,
+    overflow: 'hidden',
+    marginBottom: 7,
+  },
+  question: {
+    color: colors.ink,
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+    textAlign: 'center',
+  },
+  choices: {
+    flexDirection: 'row',
+    gap: 11,
+    marginTop: 18,
+  },
+  choice: {
+    flex: 1,
+    minHeight: 103,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radii.choice,
+    backgroundColor: colors.surface,
+  },
+  choiceYes: {
+    borderColor: colors.purple,
+    backgroundColor: '#EFECFC',
+  },
+  choiceNo: {
+    borderColor: colors.disabled,
+    backgroundColor: '#F3F2F7',
+  },
+  choiceLabel: {
+    color: colors.ink,
+    fontSize: 15.5,
+    lineHeight: 19,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  choiceLabelYes: {
+    color: colors.purpleDark,
+  },
+  choiceLabelNo: {
+    color: colors.body,
+  },
+  optionalSection: {
+    paddingHorizontal: sizes.pageGutter,
+    paddingTop: 26,
+  },
+  optionalHeading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  optional: {
+    color: colors.disabled,
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  reviewInput: {
+    minHeight: 88,
+    marginTop: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: 15,
+    color: colors.ink,
+    fontSize: 13.5,
+    lineHeight: 20,
+  },
+  extraRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  photoButton: {
+    width: 76,
+    height: 76,
+    flexShrink: 0,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.borderStrong,
+    borderRadius: radii.button,
+  },
+  photoLabel: {
+    color: colors.purple,
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '600',
+  },
+  priceCard: {
+    flex: 1,
+    minWidth: 0,
+    height: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.button,
+  },
+  priceCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  priceLabel: {
+    color: colors.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
+  },
+  priceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
+  },
+  dollar: {
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  priceInput: {
+    flex: 1,
+    minWidth: 30,
+    padding: 0,
+    color: colors.ink,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  submit: {
+    flex: 1,
+  },
+  submitDisabled: {
+    backgroundColor: colors.disabledSurface,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  submitTextDisabled: {
+    color: colors.disabled,
+  },
+  pressed: {
+    opacity: 0.72,
+  },
+});
