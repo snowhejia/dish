@@ -523,7 +523,8 @@ async function catalogSnapshot(): Promise<CatalogDto> {
          r.cover_object_key AS restaurant_cover_object_key,
          COALESCE(s.gallery_count, 0) AS gallery_count,
          COALESCE(photo_list.object_keys, '{}'::text[]) AS object_keys,
-         v.published_at IS NOT NULL
+         v.source IN ('admin', 'contribution')
+           AND v.published_at IS NOT NULL
            AND v.published_at >= now() - interval '3 days'
            AND v.published_at <= now() AS is_new,
          v.source
