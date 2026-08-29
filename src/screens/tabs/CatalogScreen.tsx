@@ -230,16 +230,17 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
         </View>
 
         {tab === 'dishes' ? (
-          <View style={styles.dishFilterRow}>
+          <View style={styles.dishFilterBar}>
             <FilterChip
               active={Boolean(cuisine)}
-              fill
+              embedded
               label={cuisine ?? 'Cuisine'}
               onPress={() => openFilterPicker('cuisine')}
             />
+            <View style={styles.dishFilterDivider} />
             <FilterChip
               active={Boolean(dishKind)}
-              fill
+              embedded
               label={dishKind ?? 'Dish type'}
               onPress={() => openFilterPicker('dishKind')}
             />
@@ -319,13 +320,13 @@ export function CatalogScreen({ onOpenDish, onOpenRestaurant }: CatalogScreenPro
 
 function FilterChip({
   active,
-  fill = false,
+  embedded = false,
   label,
   onPress,
   selectable = true,
 }: {
   active: boolean;
-  fill?: boolean;
+  embedded?: boolean;
   label: string;
   onPress: () => void;
   selectable?: boolean;
@@ -335,7 +336,11 @@ function FilterChip({
       accessibilityRole="button"
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.filterChip, fill && styles.filterChipFill, active && styles.filterChipActive]}
+      style={[
+        styles.filterChip,
+        embedded && styles.filterChipEmbedded,
+        active && !embedded && styles.filterChipActive,
+      ]}
     >
       <Text numberOfLines={1} style={[styles.filterLabel, active && styles.filterLabelActive]}>{label}</Text>
       {selectable ? <ChevronDownIcon color={active ? colors.purple : colors.muted} size={9} strokeWidth={1.6} /> : null}
@@ -456,12 +461,22 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[2],
     paddingTop: spacing[14],
   },
-  dishFilterRow: {
+  dishFilterBar: {
+    alignItems: 'center',
+    backgroundColor: colors.softSurface,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.control,
+    borderWidth: 1,
     flexDirection: 'row',
-    gap: spacing[8],
-    paddingBottom: spacing[2],
-    paddingHorizontal: sizes.pageGutter,
-    paddingTop: spacing[14],
+    marginBottom: spacing[2],
+    marginHorizontal: sizes.pageGutter,
+    marginTop: spacing[14],
+    overflow: 'hidden',
+  },
+  dishFilterDivider: {
+    backgroundColor: colors.border,
+    height: 22,
+    width: StyleSheet.hairlineWidth,
   },
   filterChip: {
     alignItems: 'center',
@@ -478,10 +493,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lavender,
     borderColor: colors.borderStrong,
   },
-  filterChipFill: {
+  filterChipEmbedded: {
+    borderRadius: 0,
+    borderWidth: 0,
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     maxWidth: '100%',
+    paddingHorizontal: spacing[14],
+    paddingVertical: spacing[10],
   },
   filterLabel: {
     color: colors.body,
